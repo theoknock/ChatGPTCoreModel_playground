@@ -54,11 +54,11 @@ struct ContentView: View {
     var body: some View {
         VStack(spacing: 20) {
             
-            Text("Psalm \(psalmNumber)")
+            Text("Psalm")
                 .font(.title)
             
             // Number input field
-            TextField("Psalm number (1–150)", text: $psalmNumberInput)
+            TextField("Psalm \(psalmNumber)", text: $psalmNumberInput) //"Psalm", text: $psalmNumberInput)
                 .keyboardType(.numberPad)
                 .multilineTextAlignment(.center)
                 .frame(width: 150)
@@ -70,6 +70,7 @@ struct ContentView: View {
                     }
                     psalmNumberInput = "\(psalmNumber)"
                 }
+                .font(.largeTitle)
             
             // Custom accelerated stepper buttons
             HStack(spacing: 40) {
@@ -112,7 +113,7 @@ struct ContentView: View {
             Button(action: {
                 addPsalmAndRun()
             }) {
-                Label("Add Psalm \(psalmNumber) Abstract", systemImage: "text.book.closed")
+                Label("Write abstract for Psalm \(psalmNumber)", systemImage: "text.book.closed")
             }
             .padding()
             
