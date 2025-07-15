@@ -52,101 +52,154 @@ struct ContentView: View {
     @State private var isIncrementing: Bool = true
     
     var body: some View {
-        VStack(spacing: 20) {
+        ZStack {
+            // Linear gradient background
+            LinearGradient(
+                    gradient: Gradient(colors: [
+                        Color.primary.opacity(0.25),
+                        Color.accentColor.opacity(0.25)
+                    ]),
+                    startPoint: .bottomTrailing,
+                    endPoint: .topLeading
+                )
+                .ignoresSafeArea()
             
-            Text("Psalm")
-                .font(.title)
-            
-            // Number input field
-            TextField("Psalm \(psalmNumber)", text: $psalmNumberInput) //"Psalm", text: $psalmNumberInput)
-                .keyboardType(.numberPad)
-                .multilineTextAlignment(.center)
-                .frame(width: 150)
-                .textFieldStyle(RoundedBorderTextFieldStyle())
-                .onChange(of: psalmNumberInput) { newValue in
-                    let filtered = newValue.filter { "0123456789".contains($0) }
-                    if let value = Int(filtered) {
-                        psalmNumber = min(max(value, 1), 150)
+            VStack(spacing: 20) {
+                HStack {
+                    Text("Psalm")
+                        .font(.title)
+                        .padding()
+                    
+                    // Custom accelerated stepper buttons
+                    //            HStack(spacing: 40) {
+                    Button(action: {
+                        decrementPsalm()
+                    }) {
+                        Image(systemName: "minus.circle")
+                            .font(.largeTitle)
+                            .padding(10)
+                            .glassEffect(.regular.interactive(), in: DefaultGlassEffectShape())
+                            .background(Color.clear)
+                            .foregroundColor(Color.white)
+                        
                     }
-                    psalmNumberInput = "\(psalmNumber)"
-                }
-                .font(.largeTitle)
-            
-            // Custom accelerated stepper buttons
-            HStack(spacing: 40) {
-                Button(action: {
-                    decrementPsalm()
-                }) {
-                    Image(systemName: "minus.circle.fill")
+                    .simultaneousGesture(
+                        LongPressGesture().onEnded { _ in
+                            startTimer(incrementing: false)
+                        }
+                    )
+                    .simultaneousGesture(
+                        DragGesture(minimumDistance: 0).onEnded { _ in
+                            stopTimer()
+                        }
+                    )
+                    
+                    // Number input field
+                    TextField("Psalm \(psalmNumber)", text: $psalmNumberInput) //"Psalm", text: $psalmNumberInput)
+                        .keyboardType(.numberPad)
+                        .multilineTextAlignment(.center)
+                    //                    .frame(width: 150)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                        .onChange(of: psalmNumberInput) { newValue in
+                            let filtered = newValue.filter { "0123456789".contains($0) }
+                            if let value = Int(filtered) {
+                                psalmNumber = min(max(value, 1), 150)
+                            }
+                            psalmNumberInput = "\(psalmNumber)"
+                        }
                         .font(.largeTitle)
+                    
+                    Button(action: {
+                        incrementPsalm()
+                    }) {
+                        Image(systemName: "plus.circle")
+                            .font(.largeTitle)
+                            .padding(10)
+                            .glassEffect(.regular.interactive(), in: DefaultGlassEffectShape())
+                            .background(Color.clear)
+                            .foregroundColor(Color.white)
+                    }
+                    .simultaneousGesture(
+                        LongPressGesture().onEnded { _ in
+                            startTimer(incrementing: true)
+                        }
+                    )
+                    .simultaneousGesture(
+                        DragGesture(minimumDistance: 0).onEnded { _ in
+                            stopTimer()
+                        }
+                    )
                 }
-                .simultaneousGesture(
-                    LongPressGesture().onEnded { _ in
-                        startTimer(incrementing: false)
-                    }
-                )
-                .simultaneousGesture(
-                    DragGesture(minimumDistance: 0).onEnded { _ in
-                        stopTimer()
-                    }
-                )
                 
+                // Add to queue and run
                 Button(action: {
-                    incrementPsalm()
+                    addPsalmAndRun()
                 }) {
-                    Image(systemName: "plus.circle.fill")
-                        .font(.largeTitle)
+                    Label {
+                        Text("Abstract")
+                            .font(.title3)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.primary)
+                    } icon: {
+                        Image("GenerateImage")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 24, height: 24)
+                            .clipShape(RoundedRectangle(cornerRadius: 4))
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(
+                        LinearGradient(
+                            gradient: Gradient(colors: [Color.accentColor.opacity(0.2), Color.accentColor.opacity(0.4)]),
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.accentColor, lineWidth: 1.5)
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
-                .simultaneousGesture(
-                    LongPressGesture().onEnded { _ in
-                        startTimer(incrementing: true)
+                .buttonStyle(PlainButtonStyle())
+                .shadow(color: Color.white.opacity(0.1), radius: 2, x: 0, y: 1)
+                
+                Divider()
+                    .padding(4)
+                    .glassEffect()
+                
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        ForEach(abstracts) { item in
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Psalm \(item.psalmNumber)")
+                                    .font(.headline)
+                                    .padding()
+                                    .glassEffect() //(in: .rect(cornerRadius: 16.0))
+                                
+                                if item.isCompleted {
+                                    Text(item.response)
+                                        .font(.body)
+                                } else {
+                                    ProgressView()
+                                        .progressViewStyle(CircularProgressViewStyle())
+                                }
+                            }
+                            .padding()
+                            .background(Color.gray.opacity(0.1))
+                            .cornerRadius(8)
+                        }
                     }
-                )
-                .simultaneousGesture(
-                    DragGesture(minimumDistance: 0).onEnded { _ in
-                        stopTimer()
-                    }
-                )
-            }
-            
-            // Add to queue and run
-            Button(action: {
-                addPsalmAndRun()
-            }) {
-                Label("Write abstract for Psalm \(psalmNumber)", systemImage: "text.book.closed")
+                    .padding()
+                }
             }
             .padding()
-            
-            Divider()
-            
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    ForEach(abstracts) { item in
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Psalm \(item.psalmNumber)")
-                                .font(.headline)
-                            
-                            if item.isCompleted {
-                                Text(item.response)
-                                    .font(.body)
-                            } else {
-                                ProgressView()
-                                    .progressViewStyle(CircularProgressViewStyle())
-                            }
-                        }
-                        .padding()
-                        .background(Color.gray.opacity(0.1))
-                        .cornerRadius(8)
-                    }
+            .onAppear {
+                psalmNumberInput = "\(psalmNumber)"
+                Task {
+                    await refreshQueue()
                 }
-                .padding()
-            }
-        }
-        .padding()
-        .onAppear {
-            psalmNumberInput = "\(psalmNumber)"
-            Task {
-                await refreshQueue()
             }
         }
     }
@@ -213,6 +266,14 @@ struct ContentView: View {
         }
     }
     
+    nonisolated func glassEffect(_ glass: Glass = .regular.tint(.orange).interactive(),
+                                 in shape: some Shape = DefaultGlassEffectShape()) -> some View
+    {
+        self
+//            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12))
+//            .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+    
     private func runPsalmAbstract(_ abstract: PsalmAbstract) async {
         do {
             let session = LanguageModelSession()
@@ -250,11 +311,14 @@ struct ContentView: View {
         await refreshQueue()
     }
     
+    
     @MainActor
     private func refreshQueue() async {
         abstracts = await queue.currentItems
     }
 }
+
+
 
 #Preview {
     ContentView()
