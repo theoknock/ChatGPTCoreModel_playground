@@ -133,6 +133,7 @@ struct ContentView: View {
                 
                 // Add to queue and run
                 Button(action: {
+                    dismissKeyboard()
                     addPsalmAndRun()
                 }) {
                     Label {
@@ -202,6 +203,10 @@ struct ContentView: View {
                 }
             }
         }
+    }
+    
+    private func dismissKeyboard() {
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     }
     
     // MARK: - Stepper Logic
