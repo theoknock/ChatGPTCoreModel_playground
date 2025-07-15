@@ -6,17 +6,47 @@
 //
 
 import SwiftUI
-import SwiftData
 import FoundationModels
 
+// MARK: - Model for a single queued Psalm abstract
+struct PsalmAbstract: Identifiable {
+    let id = UUID()
+    let psalmNumber: Int
+    var response: String = "Pending..."
+    var isCompleted: Bool = false
+}
+
+// MARK: - Actor for safe queueing
+actor PsalmQueue {
+    private(set) var items: [PsalmAbstract] = []
+    
+    func addPsalm(_ psalmNumber: Int) -> PsalmAbstract {
+        let abstract = PsalmAbstract(psalmNumber: psalmNumber)
+        items.append(abstract)
+        return abstract
+    }
+    
+    func updateResponse(for id: UUID, response: String) {
+        if let index = items.firstIndex(where: { $0.id == id }) {
+            items[index].response = response
+            items[index].isCompleted = true
+        }
+    }
+    
+    var currentItems: [PsalmAbstract] {
+        items
+    }
+}
+
+// MARK: - Main View
 struct ContentView: View {
-    @Environment(\.modelContext) private var modelContext
-    @Query private var items: [Item]
-    
     @State private var psalmNumber: Int = 34
-    @State private var psalmAbstract: String = ""
+    @State private var psalmNumberInput: String = "34"
+    @State private var abstracts: [PsalmAbstract] = []
     
-    // Timer properties
+    private let queue = PsalmQueue()
+    
+    // Timer properties for stepper acceleration
     @State private var timer: Timer?
     @State private var timerInterval: TimeInterval = 0.5
     @State private var isIncrementing: Bool = true
@@ -27,6 +57,21 @@ struct ContentView: View {
             Text("Psalm \(psalmNumber)")
                 .font(.title)
             
+            // Number input field
+            TextField("Psalm number (1–150)", text: $psalmNumberInput)
+                .keyboardType(.numberPad)
+                .multilineTextAlignment(.center)
+                .frame(width: 150)
+                .textFieldStyle(RoundedBorderTextFieldStyle())
+                .onChange(of: psalmNumberInput) { newValue in
+                    let filtered = newValue.filter { "0123456789".contains($0) }
+                    if let value = Int(filtered) {
+                        psalmNumber = min(max(value, 1), 150)
+                    }
+                    psalmNumberInput = "\(psalmNumber)"
+                }
+            
+            // Custom accelerated stepper buttons
             HStack(spacing: 40) {
                 Button(action: {
                     decrementPsalm()
@@ -63,41 +108,66 @@ struct ContentView: View {
                 )
             }
             
+            // Add to queue and run
             Button(action: {
-                Task {
-                    await generatePsalmAbstract()
-                }
+                addPsalmAndRun()
             }) {
-                Label("Generate Abstract", systemImage: "text.book.closed")
+                Label("Add Psalm \(psalmNumber) Abstract", systemImage: "text.book.closed")
             }
             .padding()
             
-            ScrollView {
-                Text(psalmAbstract)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding()
-            }
-            .border(Color.gray.opacity(0.4))
+            Divider()
             
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    ForEach(abstracts) { item in
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Psalm \(item.psalmNumber)")
+                                .font(.headline)
+                            
+                            if item.isCompleted {
+                                Text(item.response)
+                                    .font(.body)
+                            } else {
+                                ProgressView()
+                                    .progressViewStyle(CircularProgressViewStyle())
+                            }
+                        }
+                        .padding()
+                        .background(Color.gray.opacity(0.1))
+                        .cornerRadius(8)
+                    }
+                }
+                .padding()
+            }
         }
         .padding()
+        .onAppear {
+            psalmNumberInput = "\(psalmNumber)"
+            Task {
+                await refreshQueue()
+            }
+        }
     }
     
+    // MARK: - Stepper Logic
     private func incrementPsalm() {
         if psalmNumber < 150 {
             psalmNumber += 1
+            psalmNumberInput = "\(psalmNumber)"
         }
     }
     
     private func decrementPsalm() {
         if psalmNumber > 1 {
             psalmNumber -= 1
+            psalmNumberInput = "\(psalmNumber)"
         }
     }
     
     private func startTimer(incrementing: Bool) {
         isIncrementing = incrementing
-        timerInterval = 0.5 // start slower
+        timerInterval = 0.5
         stopTimer()
         
         timer = Timer.scheduledTimer(withTimeInterval: timerInterval, repeats: true) { _ in
@@ -130,48 +200,64 @@ struct ContentView: View {
         }
     }
     
-    func generatePsalmAbstract() async {
+    // MARK: - Add & Execute
+    private func addPsalmAndRun() {
+        Task {
+            let abstract = await queue.addPsalm(psalmNumber)
+            await refreshQueue()
+            
+            Task.detached {
+                await runPsalmAbstract(abstract)
+            }
+        }
+    }
+    
+    private func runPsalmAbstract(_ abstract: PsalmAbstract) async {
         do {
             let session = LanguageModelSession()
             let response = try await session.respond(to: """
-                AbstractGPT analyzes and summarizes Psalm \(psalmNumber) through a structured, blended approach that combines traditional Christian interpretation with expanded relevance for broader audiences. It produces a rich, multi-layered abstract that includes spiritual insight, theological depth, and real-world application. For each Psalm input, it delivers:
+            AbstractGPT analyzes and summarizes Psalm \(abstract.psalmNumber) through a structured, blended approach that combines traditional Christian interpretation with expanded relevance for broader audiences. It produces a rich, multi-layered abstract that includes spiritual insight, theological depth, and real-world application. For each Psalm input, it delivers:
 
-                1. Highlight: Begin with a standout insight or central message that reflects the heart of the Psalm.
+            1. Highlight: Begin with a standout insight or central message that reflects the heart of the Psalm.
 
-                2. Purpose: Clearly articulate the spiritual and emotional purpose of the Psalm, especially how it encourages or guides believers in worship, trust, or repentance.
+            2. Purpose: Clearly articulate the spiritual and emotional purpose of the Psalm, especially how it encourages or guides believers in worship, trust, or repentance.
 
-                3. Themes: Identify and support the Psalm's key themes (e.g., deliverance, divine justice, praise, lament, trust), citing specific verses.
+            3. Themes: Identify and support the Psalm's key themes (e.g., deliverance, divine justice, praise, lament, trust), citing specific verses.
 
-                4. Theological and Christological Summary: In one or two concise paragraphs, explain how the Psalm contributes to an understanding of God, covenant, sin, grace, and salvation, and highlight any direct or indirect references to Christ, the gospel, or messianic fulfillment (with supporting New Testament passages where appropriate).
+            4. Theological and Christological Summary: In one or two concise paragraphs, explain how the Psalm contributes to an understanding of God, covenant, sin, grace, and salvation, and highlight any direct or indirect references to Christ, the gospel, or messianic fulfillment (with supporting New Testament passages where appropriate).
 
-                5. Framework and Literary Structure: Identify structural patterns (e.g., lament-to-praise, parallelism, covenant appeals) and explain how these support the message of the Psalm.
+            5. Framework and Literary Structure: Identify structural patterns (e.g., lament-to-praise, parallelism, covenant appeals) and explain how these support the message of the Psalm.
 
-                6. Memorable Quotes & Dual Interpretation: Extract key verses or phrases from the Psalm and explain each twice:
-                   - For believers: as spiritual encouragement, theological depth, or worship guidance
-                   - For non-believers: as universal wisdom, poetic insight, or ethical reflection
+            6. Memorable Quotes & Dual Interpretation: Extract key verses or phrases from the Psalm and explain each twice:
+               - For believers: as spiritual encouragement, theological depth, or worship guidance
+               - For non-believers: as universal wisdom, poetic insight, or ethical reflection
 
-                7. Real-World Application: Offer practical, contemporary ways to apply the Psalm’s message, including illustrative case studies from personal experience, church history, or broader culture.
+            7. Real-World Application: Offer practical, contemporary ways to apply the Psalm’s message, including illustrative case studies from personal experience, church history, or broader culture.
 
-                8. Comparative Insight: Reference other psalms that are thematically, structurally, or emotionally similar, with a short explanation of how they relate or differ.
+            8. Comparative Insight: Reference other psalms that are thematically, structurally, or emotionally similar, with a short explanation of how they relate or differ.
 
-                9. Audience Contextualization: Explain how the Psalm’s message could be presented to believers, non-believers, or spiritually curious audiences, with attention to tone, relevance, and interpretive angle.
+            9. Audience Contextualization: Explain how the Psalm’s message could be presented to believers, non-believers, or spiritually curious audiences, with attention to tone, relevance, and interpretive angle.
 
-                All responses should remain concise but thorough, typically organized in six paragraphs or an equivalent structured format. The tone should be respectful, theologically grounded, and accessible to a wide readership.
+            All responses should remain concise but thorough, typically organized in six paragraphs or an equivalent structured format. The tone should be respectful, theologically grounded, and accessible to a wide readership.
 
-                DO NOT ADD HEADERS.
-                """
-            )
-            
-            $psalmAbstract.wrappedValue = response.content // Or response.content
+            DO NOT ADD HEADERS.
+            """)
+            await queue.updateResponse(for: abstract.id, response: response.content)
         } catch {
-            psalmAbstract = "Failed to generate abstract: \(error.localizedDescription)"
+            await queue.updateResponse(for: abstract.id, response: "Error: \(error.localizedDescription)")
         }
+        await refreshQueue()
+    }
+    
+    @MainActor
+    private func refreshQueue() async {
+        abstracts = await queue.currentItems
     }
 }
 
 #Preview {
     ContentView()
-        .modelContainer(for: Item.self, inMemory: true)
+        .preferredColorScheme(.dark)
 }
 
 
@@ -183,89 +269,124 @@ struct ContentView: View {
 ////
 //
 //import SwiftUI
-//import SwiftData
 //import FoundationModels
 //
 //struct ContentView: View {
-//    @Environment(\.modelContext) private var modelContext
-//    @Query private var items: [Item]
 //    
-//    @State private var psalmNumber: Int = 34 // ✅ Default Psalm number
-//    @State private var psalmAbstract: String = "" // ✅ Holds the generated response
+//    // Example queued prompts
+//    @State private var prompts: [String] = [
+//        """
+//        Write an abstract of Psalm 1 that is concise, stand-alone, and includes modern relevance.
+//        """,
+//        """
+//        Write an abstract of Psalm 23 that is concise, stand-alone, and includes modern relevance.
+//        """,
+//        """
+//        Write an abstract of Psalm 34 that is concise, stand-alone, and includes modern relevance.
+//        """
+//    ]
+//    
+//    // Results of each response
+//    @State private var results: [PromptResult] = []
 //    
 //    var body: some View {
 //        VStack(spacing: 20) {
-//            // ✅ Number Stepper
-//            Stepper("Psalm \(psalmNumber)", value: $psalmNumber, in: 1...150)
-//                .padding()
+//            Text("Queued Prompts")
+//                .font(.headline)
 //            
-//            // ✅ Generate Button
-//            Button(action: {
-//                Task {
-//                    await generatePsalmAbstract()
+//            List {
+//                ForEach(prompts, id: \.self) { prompt in
+//                    Text(prompt.prefix(50) + "...")
+//                        .font(.subheadline)
+//                        .foregroundColor(.secondary)
 //                }
-//            }) {
-//                Label("Generate Abstract", systemImage: "text.book.closed")
+//            }
+//            .frame(height: 200)
+//            
+//            Button("Run All Prompts") {
+//                Task {
+//                    await runAllPrompts()
+//                }
 //            }
 //            .padding()
 //            
-//            // ✅ Scrollable Text View for Response
+//            Text("Results")
+//                .font(.headline)
+//            
 //            ScrollView {
-//                Text(psalmAbstract)
-//                    .frame(maxWidth: .infinity, alignment: .leading)
-//                    .padding()
+//                VStack(alignment: .leading, spacing: 20) {
+//                    ForEach(results) { result in
+//                        VStack(alignment: .leading, spacing: 8) {
+//                            Text("Prompt:")
+//                                .font(.subheadline)
+//                                .bold()
+//                            Text(result.prompt)
+//                                .font(.footnote)
+//                                .foregroundColor(.secondary)
+//                            
+//                            Text("Response:")
+//                                .font(.subheadline)
+//                                .bold()
+//                            Text(result.response)
+//                                .font(.body)
+//                        }
+//                        .padding()
+//                        .background(Color.gray.opacity(0.1))
+//                        .cornerRadius(8)
+//                    }
+//                }
+//                .padding()
 //            }
-//            .border(Color.gray.opacity(0.4))
 //        }
 //        .padding()
 //    }
 //    
-//    func generatePsalmAbstract() async {
-//        do {
-//            let session = LanguageModelSession()
-//            let response = try await session.respond(to: """
-//                AbstractGPT analyzes and summarizes Psalm \(psalmNumber) through a structured, blended approach that combines traditional Christian interpretation with expanded relevance for broader audiences. It produces a rich, multi-layered abstract that includes spiritual insight, theological depth, and real-world application. For each Psalm input, it delivers:
-//
-//                1. Highlight: Begin with a standout insight or central message that reflects the heart of the Psalm.
-//
-//                2. Purpose: Clearly articulate the spiritual and emotional purpose of the Psalm, especially how it encourages or guides believers in worship, trust, or repentance.
-//
-//                3. Themes: Identify and support the Psalm's key themes (e.g., deliverance, divine justice, praise, lament, trust), citing specific verses.
-//
-//                4. Theological and Christological Summary: In one or two concise paragraphs, explain how the Psalm contributes to an understanding of God, covenant, sin, grace, and salvation, and highlight any direct or indirect references to Christ, the gospel, or messianic fulfillment (with supporting New Testament passages where appropriate).
-//
-//                5. Framework and Literary Structure: Identify structural patterns (e.g., lament-to-praise, parallelism, covenant appeals) and explain how these support the message of the Psalm.
-//
-//                6. Memorable Quotes & Dual Interpretation: Extract key verses or phrases from the Psalm and explain each twice:
-//                   - For believers: as spiritual encouragement, theological depth, or worship guidance
-//                   - For non-believers: as universal wisdom, poetic insight, or ethical reflection
-//
-//                7. Real-World Application: Offer practical, contemporary ways to apply the Psalm’s message, including illustrative case studies from personal experience, church history, or broader culture.
-//
-//                8. Comparative Insight: Reference other psalms that are thematically, structurally, or emotionally similar, with a short explanation of how they relate or differ.
-//
-//                9. Audience Contextualization: Explain how the Psalm’s message could be presented to believers, non-believers, or spiritually curious audiences, with attention to tone, relevance, and interpretive angle.
-//
-//                All responses should remain concise but thorough, typically organized in six paragraphs or an equivalent structured format. The tone should be respectful, theologically grounded, and accessible to a wide readership.
-//
-//                DO NOT ADD HEADERS.
-//                """
-//            )
+//    func runAllPrompts() async {
+//        results = [] // Clear previous results
+//        
+//        await withTaskGroup(of: PromptResult?.self) { group in
+//            for prompt in prompts {
+//                group.addTask {
+//                    do {
+//                        let session = LanguageModelSession()
+//                        let response = try await session.respond(to: prompt)
+//                        let text = response.content // or .content depending on your API
+//                        return PromptResult(prompt: prompt, response: text)
+//                    } catch {
+//                        return PromptResult(prompt: prompt, response: "Error: \(error.localizedDescription)")
+//                    }
+//                }
+//            }
 //            
-//            $psalmAbstract.wrappedValue = response.content // ✅ Or use .content if that’s the actual property
-//        } catch {
-//            psalmAbstract = "Failed to generate abstract: \(error.localizedDescription)"
+//            for await result in group {
+//                if let result = result {
+//                    await MainActor.run {
+//                        results.append(result)
+//                    }
+//                }
+//            }
 //        }
 //    }
 //}
 //
+//struct PromptResult: Identifiable {
+//    let id = UUID()
+//    let prompt: String
+//    let response: String
+//}
+//
 //#Preview {
 //    ContentView()
-//        .modelContainer(for: Item.self, inMemory: true)
 //}
 //
 //
-//
+//////
+//////  ContentView.swift
+//////  ChatGPTCoreModel_playground
+//////
+//////  Created by Xcode Developer on 7/15/25.
+//////
+////
 ////import SwiftUI
 ////import SwiftData
 ////import FoundationModels
@@ -274,75 +395,336 @@ struct ContentView: View {
 ////    @Environment(\.modelContext) private var modelContext
 ////    @Query private var items: [Item]
 ////    
-////    @State private var psalm34Abstract: String = "" // ✅ State to hold the response
+////    @State private var psalmNumber: Int = 34
+////    @State private var psalmAbstract: String = ""
+////    
+////    // Timer properties
+////    @State private var timer: Timer?
+////    @State private var timerInterval: TimeInterval = 0.5
+////    @State private var isIncrementing: Bool = true
 ////    
 ////    var body: some View {
-////        
-////        Button(action: {
-////            Task {
-////                await getPsalm34Abstract()
+////        VStack(spacing: 20) {
+////            
+////            Text("Psalm \(psalmNumber)")
+////                .font(.title)
+////            
+////            HStack(spacing: 40) {
+////                Button(action: {
+////                    decrementPsalm()
+////                }) {
+////                    Image(systemName: "minus.circle.fill")
+////                        .font(.largeTitle)
+////                }
+////                .simultaneousGesture(
+////                    LongPressGesture().onEnded { _ in
+////                        startTimer(incrementing: false)
+////                    }
+////                )
+////                .simultaneousGesture(
+////                    DragGesture(minimumDistance: 0).onEnded { _ in
+////                        stopTimer()
+////                    }
+////                )
+////                
+////                Button(action: {
+////                    incrementPsalm()
+////                }) {
+////                    Image(systemName: "plus.circle.fill")
+////                        .font(.largeTitle)
+////                }
+////                .simultaneousGesture(
+////                    LongPressGesture().onEnded { _ in
+////                        startTimer(incrementing: true)
+////                    }
+////                )
+////                .simultaneousGesture(
+////                    DragGesture(minimumDistance: 0).onEnded { _ in
+////                        stopTimer()
+////                    }
+////                )
 ////            }
-////        }) {
-////            Label("Get Psalm 34 Abstract", systemImage: "text.book.closed")
+////            
+////            Button(action: {
+////                Task {
+////                    await generatePsalmAbstract()
+////                }
+////            }) {
+////                Label("Generate Abstract", systemImage: "text.book.closed")
+////            }
+////            .padding()
+////            
+////            ScrollView {
+////                Text(psalmAbstract)
+////                    .frame(maxWidth: .infinity, alignment: .leading)
+////                    .padding()
+////            }
+////            .border(Color.gray.opacity(0.4))
+////            
 ////        }
+////        .padding()
+////    }
+////    
+////    private func incrementPsalm() {
+////        if psalmNumber < 150 {
+////            psalmNumber += 1
+////        }
+////    }
+////    
+////    private func decrementPsalm() {
+////        if psalmNumber > 1 {
+////            psalmNumber -= 1
+////        }
+////    }
+////    
+////    private func startTimer(incrementing: Bool) {
+////        isIncrementing = incrementing
+////        timerInterval = 0.5 // start slower
+////        stopTimer()
 ////        
-////        Text($psalm34Abstract.wrappedValue)
-////    }
-////
-////
-////func getPsalm34Abstract() async {
-////    do {
-////        let session = LanguageModelSession()
-////        let response = try await session.respond(to: """
-////            AbstractGPT analyzes and summarizes any given Psalm through a structured, blended approach that combines traditional Christian interpretation with expanded relevance for broader audiences. It produces a rich, multi-layered abstract that includes spiritual insight, theological depth, and real-world application. For each Psalm input, it delivers:
-////
-////            1. **Highlight:** Begin with a standout insight or central message that reflects the heart of the Psalm.
-////
-////            2. **Purpose:** Clearly articulate the spiritual and emotional purpose of the Psalm, especially how it encourages or guides believers in worship, trust, or repentance.
-////
-////            3. **Themes:** Identify and support the Psalm's key themes (e.g., deliverance, divine justice, praise, lament, trust), citing specific verses.
-////
-////            4. **Theological and Christological Summary:** In one or two concise paragraphs, explain how the Psalm contributes to an understanding of God, covenant, sin, grace, and salvation, and highlight any direct or indirect references to Christ, the gospel, or messianic fulfillment (with supporting New Testament passages where appropriate).
-////
-////            5. **Framework and Literary Structure:** Identify structural patterns (e.g., lament-to-praise, parallelism, covenant appeals) and explain how these support the message of the Psalm.
-////
-////            6. **Memorable Quotes & Dual Interpretation:** Extract key verses or phrases from the Psalm and explain each twice:
-////               - For **believers**: as spiritual encouragement, theological depth, or worship guidance
-////               - For **non-believers**: as universal wisdom, poetic insight, or ethical reflection
-////
-////            7. **Real-World Application:** Offer practical, contemporary ways to apply the Psalm’s message, including illustrative case studies from personal experience, church history, or broader culture.
-////
-////            8. **Comparative Insight:** Reference other psalms that are thematically, structurally, or emotionally similar, with a short explanation of how they relate or differ.
-////
-////            9. **Audience Contextualization:** Explain how the Psalm’s message could be presented to believers, non-believers, or spiritually curious audiences, with attention to tone, relevance, and interpretive angle.
-////
-////            All responses should remain concise but thorough, typically organized in six paragraphs or an equivalent structured format. The tone should be respectful, theologically grounded, and accessible to a wide readership.
-////
-////            DO NOT ADD HEADERS.
-////            """)
-////        $psalm34Abstract.wrappedValue = response.content // If '.value' is not correct, use the actual property name that contains the String in LanguageModelSession.Response<String>
-////    } catch {
-////        psalm34Abstract = "Failed to generate abstract: \(error.localizedDescription)"
-////    }
-////}
-////
-////private func addItem() {
-////    withAnimation {
-////        let newItem = Item(timestamp: Date())
-////        modelContext.insert(newItem)
-////    }
-////}
-////
-////private func deleteItems(offsets: IndexSet) {
-////    withAnimation {
-////        for index in offsets {
-////            modelContext.delete(items[index])
+////        timer = Timer.scheduledTimer(withTimeInterval: timerInterval, repeats: true) { _ in
+////            if isIncrementing {
+////                incrementPsalm()
+////            } else {
+////                decrementPsalm()
+////            }
+////            accelerateScrolling()
 ////        }
 ////    }
-////}
+////    
+////    private func stopTimer() {
+////        timer?.invalidate()
+////        timer = nil
+////    }
+////    
+////    private func accelerateScrolling() {
+////        if timerInterval > 0.1 {
+////            timerInterval -= 0.05
+////            stopTimer()
+////            timer = Timer.scheduledTimer(withTimeInterval: timerInterval, repeats: true) { _ in
+////                if isIncrementing {
+////                    incrementPsalm()
+////                } else {
+////                    decrementPsalm()
+////                }
+////                accelerateScrolling()
+////            }
+////        }
+////    }
+////    
+////    func generatePsalmAbstract() async {
+////        do {
+////            let session = LanguageModelSession()
+////            let response = try await session.respond(to: """
+////                AbstractGPT analyzes and summarizes Psalm \(psalmNumber) through a structured, blended approach that combines traditional Christian interpretation with expanded relevance for broader audiences. It produces a rich, multi-layered abstract that includes spiritual insight, theological depth, and real-world application. For each Psalm input, it delivers:
+////
+////                1. Highlight: Begin with a standout insight or central message that reflects the heart of the Psalm.
+////
+////                2. Purpose: Clearly articulate the spiritual and emotional purpose of the Psalm, especially how it encourages or guides believers in worship, trust, or repentance.
+////
+////                3. Themes: Identify and support the Psalm's key themes (e.g., deliverance, divine justice, praise, lament, trust), citing specific verses.
+////
+////                4. Theological and Christological Summary: In one or two concise paragraphs, explain how the Psalm contributes to an understanding of God, covenant, sin, grace, and salvation, and highlight any direct or indirect references to Christ, the gospel, or messianic fulfillment (with supporting New Testament passages where appropriate).
+////
+////                5. Framework and Literary Structure: Identify structural patterns (e.g., lament-to-praise, parallelism, covenant appeals) and explain how these support the message of the Psalm.
+////
+////                6. Memorable Quotes & Dual Interpretation: Extract key verses or phrases from the Psalm and explain each twice:
+////                   - For believers: as spiritual encouragement, theological depth, or worship guidance
+////                   - For non-believers: as universal wisdom, poetic insight, or ethical reflection
+////
+////                7. Real-World Application: Offer practical, contemporary ways to apply the Psalm’s message, including illustrative case studies from personal experience, church history, or broader culture.
+////
+////                8. Comparative Insight: Reference other psalms that are thematically, structurally, or emotionally similar, with a short explanation of how they relate or differ.
+////
+////                9. Audience Contextualization: Explain how the Psalm’s message could be presented to believers, non-believers, or spiritually curious audiences, with attention to tone, relevance, and interpretive angle.
+////
+////                All responses should remain concise but thorough, typically organized in six paragraphs or an equivalent structured format. The tone should be respectful, theologically grounded, and accessible to a wide readership.
+////
+////                DO NOT ADD HEADERS.
+////                """
+////            )
+////            
+////            $psalmAbstract.wrappedValue = response.content
+////        } catch {
+////            psalmAbstract = "Failed to generate abstract: \(error.localizedDescription)"
+////        }
+////    }
 ////}
 ////
 ////#Preview {
 ////    ContentView()
 ////        .modelContainer(for: Item.self, inMemory: true)
 ////}
+////
+////
+////////
+////////  ContentView.swift
+////////  ChatGPTCoreModel_playground
+////////
+////////  Created by Xcode Developer on 7/15/25.
+////////
+//////
+//////import SwiftUI
+//////import SwiftData
+//////import FoundationModels
+//////
+//////struct ContentView: View {
+//////    @Environment(\.modelContext) private var modelContext
+//////    @Query private var items: [Item]
+//////    
+//////    @State private var psalmNumber: Int = 34 // ✅ Default Psalm number
+//////    @State private var psalmAbstract: String = "" // ✅ Holds the generated response
+//////    
+//////    var body: some View {
+//////        VStack(spacing: 20) {
+//////            // ✅ Number Stepper
+//////            Stepper("Psalm \(psalmNumber)", value: $psalmNumber, in: 1...150)
+//////                .padding()
+//////            
+//////            // ✅ Generate Button
+//////            Button(action: {
+//////                Task {
+//////                    await generatePsalmAbstract()
+//////                }
+//////            }) {
+//////                Label("Generate Abstract", systemImage: "text.book.closed")
+//////            }
+//////            .padding()
+//////            
+//////            // ✅ Scrollable Text View for Response
+//////            ScrollView {
+//////                Text(psalmAbstract)
+//////                    .frame(maxWidth: .infinity, alignment: .leading)
+//////                    .padding()
+//////            }
+//////            .border(Color.gray.opacity(0.4))
+//////        }
+//////        .padding()
+//////    }
+//////    
+//////    func generatePsalmAbstract() async {
+//////        do {
+//////            let session = LanguageModelSession()
+//////            let response = try await session.respond(to: """
+//////                AbstractGPT analyzes and summarizes Psalm \(psalmNumber) through a structured, blended approach that combines traditional Christian interpretation with expanded relevance for broader audiences. It produces a rich, multi-layered abstract that includes spiritual insight, theological depth, and real-world application. For each Psalm input, it delivers:
+//////
+//////                1. Highlight: Begin with a standout insight or central message that reflects the heart of the Psalm.
+//////
+//////                2. Purpose: Clearly articulate the spiritual and emotional purpose of the Psalm, especially how it encourages or guides believers in worship, trust, or repentance.
+//////
+//////                3. Themes: Identify and support the Psalm's key themes (e.g., deliverance, divine justice, praise, lament, trust), citing specific verses.
+//////
+//////                4. Theological and Christological Summary: In one or two concise paragraphs, explain how the Psalm contributes to an understanding of God, covenant, sin, grace, and salvation, and highlight any direct or indirect references to Christ, the gospel, or messianic fulfillment (with supporting New Testament passages where appropriate).
+//////
+//////                5. Framework and Literary Structure: Identify structural patterns (e.g., lament-to-praise, parallelism, covenant appeals) and explain how these support the message of the Psalm.
+//////
+//////                6. Memorable Quotes & Dual Interpretation: Extract key verses or phrases from the Psalm and explain each twice:
+//////                   - For believers: as spiritual encouragement, theological depth, or worship guidance
+//////                   - For non-believers: as universal wisdom, poetic insight, or ethical reflection
+//////
+//////                7. Real-World Application: Offer practical, contemporary ways to apply the Psalm’s message, including illustrative case studies from personal experience, church history, or broader culture.
+//////
+//////                8. Comparative Insight: Reference other psalms that are thematically, structurally, or emotionally similar, with a short explanation of how they relate or differ.
+//////
+//////                9. Audience Contextualization: Explain how the Psalm’s message could be presented to believers, non-believers, or spiritually curious audiences, with attention to tone, relevance, and interpretive angle.
+//////
+//////                All responses should remain concise but thorough, typically organized in six paragraphs or an equivalent structured format. The tone should be respectful, theologically grounded, and accessible to a wide readership.
+//////
+//////                DO NOT ADD HEADERS.
+//////                """
+//////            )
+//////            
+//////            $psalmAbstract.wrappedValue = response.content // ✅ Or use .content if that’s the actual property
+//////        } catch {
+//////            psalmAbstract = "Failed to generate abstract: \(error.localizedDescription)"
+//////        }
+//////    }
+//////}
+//////
+//////#Preview {
+//////    ContentView()
+//////        .modelContainer(for: Item.self, inMemory: true)
+//////}
+//////
+//////
+//////
+////////import SwiftUI
+////////import SwiftData
+////////import FoundationModels
+////////
+////////struct ContentView: View {
+////////    @Environment(\.modelContext) private var modelContext
+////////    @Query private var items: [Item]
+////////    
+////////    @State private var psalm34Abstract: String = "" // ✅ State to hold the response
+////////    
+////////    var body: some View {
+////////        
+////////        Button(action: {
+////////            Task {
+////////                await getPsalm34Abstract()
+////////            }
+////////        }) {
+////////            Label("Get Psalm 34 Abstract", systemImage: "text.book.closed")
+////////        }
+////////        
+////////        Text($psalm34Abstract.wrappedValue)
+////////    }
+////////
+////////
+////////func getPsalm34Abstract() async {
+////////    do {
+////////        let session = LanguageModelSession()
+////////        let response = try await session.respond(to: """
+////////            AbstractGPT analyzes and summarizes any given Psalm through a structured, blended approach that combines traditional Christian interpretation with expanded relevance for broader audiences. It produces a rich, multi-layered abstract that includes spiritual insight, theological depth, and real-world application. For each Psalm input, it delivers:
+////////
+////////            1. **Highlight:** Begin with a standout insight or central message that reflects the heart of the Psalm.
+////////
+////////            2. **Purpose:** Clearly articulate the spiritual and emotional purpose of the Psalm, especially how it encourages or guides believers in worship, trust, or repentance.
+////////
+////////            3. **Themes:** Identify and support the Psalm's key themes (e.g., deliverance, divine justice, praise, lament, trust), citing specific verses.
+////////
+////////            4. **Theological and Christological Summary:** In one or two concise paragraphs, explain how the Psalm contributes to an understanding of God, covenant, sin, grace, and salvation, and highlight any direct or indirect references to Christ, the gospel, or messianic fulfillment (with supporting New Testament passages where appropriate).
+////////
+////////            5. **Framework and Literary Structure:** Identify structural patterns (e.g., lament-to-praise, parallelism, covenant appeals) and explain how these support the message of the Psalm.
+////////
+////////            6. **Memorable Quotes & Dual Interpretation:** Extract key verses or phrases from the Psalm and explain each twice:
+////////               - For **believers**: as spiritual encouragement, theological depth, or worship guidance
+////////               - For **non-believers**: as universal wisdom, poetic insight, or ethical reflection
+////////
+////////            7. **Real-World Application:** Offer practical, contemporary ways to apply the Psalm’s message, including illustrative case studies from personal experience, church history, or broader culture.
+////////
+////////            8. **Comparative Insight:** Reference other psalms that are thematically, structurally, or emotionally similar, with a short explanation of how they relate or differ.
+////////
+////////            9. **Audience Contextualization:** Explain how the Psalm’s message could be presented to believers, non-believers, or spiritually curious audiences, with attention to tone, relevance, and interpretive angle.
+////////
+////////            All responses should remain concise but thorough, typically organized in six paragraphs or an equivalent structured format. The tone should be respectful, theologically grounded, and accessible to a wide readership.
+////////
+////////            DO NOT ADD HEADERS.
+////////            """)
+////////        $psalm34Abstract.wrappedValue = response.content // If '.value' is not correct, use the actual property name that contains the String in LanguageModelSession.Response<String>
+////////    } catch {
+////////        psalm34Abstract = "Failed to generate abstract: \(error.localizedDescription)"
+////////    }
+////////}
+////////
+////////private func addItem() {
+////////    withAnimation {
+////////        let newItem = Item(timestamp: Date())
+////////        modelContext.insert(newItem)
+////////    }
+////////}
+////////
+////////private func deleteItems(offsets: IndexSet) {
+////////    withAnimation {
+////////        for index in offsets {
+////////            modelContext.delete(items[index])
+////////        }
+////////    }
+////////}
+////////}
+////////
+////////#Preview {
+////////    ContentView()
+////////        .modelContainer(for: Item.self, inMemory: true)
+////////}
