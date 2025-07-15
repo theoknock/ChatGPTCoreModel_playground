@@ -40,8 +40,22 @@ actor PsalmQueue {
 
 // MARK: - Main View
 struct ContentView: View {
-    @State private var psalmNumber: Int = 34
-    @State private var psalmNumberInput: String = "34"
+    @State private var psalmNumber: Int = .zero
+    @State private var psalmNumberInput: String = String()
+    var quotedPsalmNumberInput: Binding<String> {
+        Binding<String>(
+            get: {
+                "\(psalmNumberInput)"
+            },
+            set: { newValue in
+                if newValue.hasPrefix("\"") && newValue.hasSuffix("\"") {
+                    psalmNumberInput = String(newValue.dropFirst().dropLast())
+                } else {
+                    psalmNumberInput = newValue
+                }
+            }
+        )
+    }
     @State private var abstracts: [PsalmAbstract] = []
     
     private let queue = PsalmQueue()
@@ -64,19 +78,18 @@ struct ContentView: View {
                 )
                 .ignoresSafeArea()
             
-            VStack(spacing: 20) {
-                Text("Psalm")
-                    .font(.title)
-                    .padding(.top)
+            VStack(content: {
+//                Text("Psalm")
+//                    .font(.title)
+//                    .padding(.bo)
                 
                 ZStack(alignment: (.center), content: {
                     HStack {
-                        TextField(("Enter a psalm (1-150)..."), text: $psalmNumberInput, axis: .vertical)
-//                            .padding(.leading)
+                        TextField(("Enter a psalm (1-150)..."), text: $psalmNumberInput, axis: .horizontal)
+                            .padding(.leading)
+                        Spacer()
                     }
-//                    .padding(.trailing)
                     
-//                    Spacer()
                     
                     HStack {
                         Button(action: {
@@ -108,15 +121,19 @@ struct ContentView: View {
                                 stopTimer()
                             }
                         )
+                        .padding(.leading, 2)
+                        .buttonStyle(PlainButtonStyle())
+                        .shadow(color: Color.white.opacity(0.5), radius: 2, x: 2, y: 2)
                         
                         Spacer()
                         
                         // Number input field
-                        TextField("Psalm \(psalmNumber)", text: $psalmNumberInput) //"Psalm", text: $psalmNumberInput)
+                        TextField("Psalm \(psalmNumber)", text: quotedPsalmNumberInput) //"Psalm", text: $psalmNumberInput)
                             .keyboardType(.numberPad)
                             .multilineTextAlignment(.center)
-                                            .frame(width: 150)
-//                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                            .textFieldStyle(DefaultTextFieldStyle())
+                            .shadow(color: Color.black.opacity(0.5), radius: 2, x: 0, y: 0)
+                            
                             .onChange(of: psalmNumberInput) { newValue in
                                 let filtered = newValue.filter { "0123456789".contains($0) }
                                 if let value = Int(filtered) {
@@ -127,8 +144,9 @@ struct ContentView: View {
                             .font(.largeTitle)
                             .foregroundColor(Color(UIColor.white))
                             .background(Color(UIColor.clear))
-                            .padding(8)
-                            .glassEffect()
+                            .padding(4)
+                        
+//                            .glassEffect()
                         
                         Spacer()
                         
@@ -136,13 +154,13 @@ struct ContentView: View {
                             incrementPsalm()
                         }) {
                             Image(systemName: "plus.circle")
+                                .padding(8)
                                 .foregroundColor(Color(UIColor.white))
                                 .symbolRenderingMode(.hierarchical)
                                 .font(.largeTitle)
                                 .imageScale(.small)
                                 .labelStyle(.iconOnly)
                                 .clipShape(Circle())
-                                .padding(8)
                                 .glassEffect()
 //                                .font(.largeTitle)
 //                                .padding(10)
@@ -160,6 +178,9 @@ struct ContentView: View {
                                 stopTimer()
                             }
                         )
+                        .padding(.trailing, 2)
+                        .buttonStyle(PlainButtonStyle())
+                        .shadow(color: Color.white.opacity(0.5), radius: 2, x: 2, y: 2)
                     }
                     //            .ignoresSafeArea()
                     //            .background(Color.init(uiColor: UIColor(white: 1.0, alpha: 0.2)))
@@ -168,122 +189,55 @@ struct ContentView: View {
                 //        .ignoresSafeArea()
                 .background(Color.init(uiColor: UIColor(white: 1.0, alpha: 0.2)))
                 .clipShape(RoundedRectangle(cornerSize: CGSize(width: 25, height: 25), style: .continuous))
-                
-                
-//                HStack {
-//                    Text("Psalm")
-//                        .font(.title)
-//                        .padding()
-//                    
-//                    // Custom accelerated stepper buttons
-//                    //            HStack(spacing: 40) {
-//                    Button(action: {
-//                        decrementPsalm()
-//                    }) {
-//                        Image(systemName: "minus.circle")
-//                            .font(.largeTitle)
-//                            .padding(10)
-//                            .glassEffect(.regular.interactive(), in: DefaultGlassEffectShape())
-//                            .background(Color.clear)
-//                            .foregroundColor(Color.white)
-//                        
-//                    }
-//                    .simultaneousGesture(
-//                        LongPressGesture().onEnded { _ in
-//                            startTimer(incrementing: false)
-//                        }
-//                    )
-//                    .simultaneousGesture(
-//                        DragGesture(minimumDistance: 0).onEnded { _ in
-//                            stopTimer()
-//                        }
-//                    )
-//                    
-//                    // Number input field
-//                    TextField("Psalm \(psalmNumber)", text: $psalmNumberInput) //"Psalm", text: $psalmNumberInput)
-//                        .keyboardType(.numberPad)
-//                        .multilineTextAlignment(.center)
-//                    //                    .frame(width: 150)
-//                        .textFieldStyle(RoundedBorderTextFieldStyle())
-//                        .onChange(of: psalmNumberInput) { newValue in
-//                            let filtered = newValue.filter { "0123456789".contains($0) }
-//                            if let value = Int(filtered) {
-//                                psalmNumber = min(max(value, 1), 150)
-//                            }
-//                            psalmNumberInput = "\(psalmNumber)"
-//                        }
-//                        .font(.largeTitle)
-//                    
-//                    Button(action: {
-//                        incrementPsalm()
-//                    }) {
-//                        Image(systemName: "plus.circle")
-//                            .font(.largeTitle)
-//                            .padding(10)
-//                            .glassEffect(.regular.interactive(), in: DefaultGlassEffectShape())
-//                            .background(Color.clear)
-//                            .foregroundColor(Color.white)
-//                    }
-//                    .simultaneousGesture(
-//                        LongPressGesture().onEnded { _ in
-//                            startTimer(incrementing: true)
-//                        }
-//                    )
-//                    .simultaneousGesture(
-//                        DragGesture(minimumDistance: 0).onEnded { _ in
-//                            stopTimer()
-//                        }
-//                    )
-//                }
-                
+                .padding(.vertical)
+ 
                 // Add to queue and run
-                Button(action: {
-                    dismissKeyboard()
-                    addPsalmAndRun()
-                }) {
-                    Label {
-                        Text("Write Abstract")
-                            .font(.title3)
-                            .fontWeight(.semibold)
-                            .foregroundColor(.primary)
-                            .frame(maxWidth: .infinity, alignment: .center)
-                    } icon: {
-                        Image(systemName: "pencil")
-                            .foregroundColor(Color(UIColor.white))
-                            .symbolRenderingMode(.hierarchical)
-                            .font(.largeTitle)
-                            .imageScale(.small)
-                            .labelStyle(.iconOnly)
-                            .clipShape(Circle())
-                            .padding(8)
-                            .glassEffect()
-//                            .resizable()
-//                            .scaledToFit()
-//                            .frame(width: 24, height: 24)
-//                            .clipShape(RoundedRectangle(cornerRadius: 4))
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .background(
-                        LinearGradient(
-                            gradient: Gradient(colors: [Color.accentColor.opacity(0.2), Color.accentColor.opacity(0.4)]),
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
+                HStack {
+                    Spacer()
+                    Button(action: {
+                        dismissKeyboard()
+                        addPsalmAndRun()
+                    }) {
+                        Label {
+                            Text("Abstract")
+//                                .font(.title3)
+//                                .fontWeight(.semibold)
+//                                .foregroundColor(.primary)
+//                                .frame(alignment: .center)
+                        } icon: {
+                            Image(systemName: "pencil")
+                                .foregroundColor(Color(UIColor.white))
+                                .symbolRenderingMode(.hierarchical)
+                                .font(.largeTitle)
+                                .imageScale(.small)
+                                .labelStyle(.iconOnly)
+                                .clipShape(Circle())
+                                .padding(6)
+                                .glassEffect()
+                            //                            .resizable()
+                            //                            .scaledToFit()
+                            //                            .frame(width: 24, height: 24)
+                            //                            .clipShape(RoundedRectangle(cornerRadius: 4))
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(
+                            LinearGradient(
+                                gradient: Gradient(colors: [Color.accentColor.opacity(0.2), Color.accentColor.opacity(0.4)]),
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
                         )
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(Color.accentColor, lineWidth: 1.5)
-                    )
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Color.accentColor, lineWidth: 1.5)
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                    }
+                    .buttonStyle(DefaultButtonStyle())
+                    .shadow(color: Color.accentColor.opacity(1.4), radius: 2, x: 2, y: 2)
                 }
-                .buttonStyle(PlainButtonStyle())
-                .shadow(color: Color.white.opacity(0.1), radius: 2, x: 0, y: 1)
-                
-                Divider()
-                    .padding(4)
-                    .glassEffect()
-                
+            
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
                         ForEach(abstracts) { item in
@@ -308,7 +262,7 @@ struct ContentView: View {
                     }
                     .padding()
                 }
-            }
+            })
             .padding()
             .onAppear {
                 psalmNumberInput = "\(psalmNumber)"
