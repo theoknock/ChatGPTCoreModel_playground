@@ -15,7 +15,7 @@ struct ContentTestView: View {
             PsalmCounterControl(value: $psalmValue, stringValue: $psalmStringValue, isTextFieldFocused: $isTextFieldFocused)
             
             // Display the current value without modifying it
-            Text("Current Psalm: \(psalmStringValue)")
+            Text("Psalm \(psalmStringValue)")
                 .font(.headline)
                 .foregroundColor(.blue)
                 .padding(.top, 10)
@@ -39,6 +39,13 @@ struct ContentTestView: View {
         .padding()
     }
 }
+
+/*
+ 
+Custom SwiftUI Stepper Control
+A compact stepper control featuring accelerating increment/decrement buttons and editable text input. Provides immediate response on touch with progressive speed increase during prolonged presses, plus direct keyboard editing with automatic validation. Clean rounded rectangle design with dual data bindings.
+
+ */
 
 struct PsalmCounterControl: View {
     @Binding var value: Int
