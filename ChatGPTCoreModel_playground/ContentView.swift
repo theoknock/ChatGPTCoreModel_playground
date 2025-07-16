@@ -198,15 +198,16 @@ struct ContentView: View {
                         ForEach(abstracts) { item in
                             VStack(alignment: .leading, spacing: 8) {
                                 Text("Psalm \(item.psalmNumber)")
-                                    .frame(maxWidth: UIScreen.main.bounds.width)
                                     .font(.title2)
                                     .fontWeight(.medium)
                                     .padding(.vertical)
+                                    .frame(idealWidth: UIScreen.main.bounds.size.width, maxWidth: UIScreen.main.bounds.size.width)
                                     .glassEffect(in: .rect(cornerRadius: 25.0))
                                 
                                 if item.isCompleted {
                                     Text(item.response)
                                         .font(.body)
+                                        .frame(width: .infinity)
                                 } else {
                                     ProgressView()
                                         .progressViewStyle(CircularProgressViewStyle())
@@ -216,13 +217,18 @@ struct ContentView: View {
                             .background(Color.gray.opacity(0.1))
                             .cornerRadius(28)
                             .glassEffect(in: .rect(cornerRadius: 25.0))
-                            .padding()
+                            .padding(.vertical)
                         }
                     }
-                    .padding(.bottom, 50)
+//                    .padding(.bottom, 50)
+                    
                     
                     Spacer()
                 }
+//                .frame(width: .infinity, height: .infinity)
+//                .border(Color.white.opacity(1.0), width: 0.2)
+//                .backgroundStyle(Color.white.opacity(1.0))
+                .ignoresSafeArea()
             })
             .padding()
             .onAppear {
@@ -232,11 +238,13 @@ struct ContentView: View {
                 }
             }
             
+            
             VStack {
                 Spacer()
                 
                 HStack(alignment: .bottom, content: {
                     Spacer()
+                    
                     Text("James Alan Bush")
                         .font(.caption)
                         .foregroundColor(.primary)
@@ -246,11 +254,14 @@ struct ContentView: View {
                     Text("Commit ID 0863a4e")
                         .font(.caption2)
                         .foregroundColor(.secondary)
+                    
                     Spacer()
                 })
-                .padding(.top, 25)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            
+//            .frame(width: .infinity, height: .infinity)
+//            .border(Color.white.opacity(1.0), width: 0.2)
+//            .backgroundStyle(Color.white.opacity(1.0))
         }
     }
     
@@ -320,45 +331,33 @@ struct ContentView: View {
         }
     }
     
-    nonisolated func glassEffect(_ glass: Glass = .regular.tint(.orange).interactive(),
-                                 in shape: some Shape = DefaultGlassEffectShape()) -> some View
-    {
-        self
-        //            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12))
-        //            .clipShape(RoundedRectangle(cornerRadius: 12))
-    }
-    
     private func runPsalmAbstract(_ abstract: PsalmAbstract) async {
         do {
-            let session = LanguageModelSession()
-            let response = try await session.respond(to: """
-            AbstractGPT analyzes and summarizes Psalm \(abstract.psalmNumber) through a structured, blended approach that combines traditional Christian interpretation with expanded relevance for broader audiences. It produces a rich, multi-layered abstract that includes spiritual insight, theological depth, and real-world application. For each Psalm input, it delivers:
+            let instructions = """
+            Your instructions:
+            You will write an abstract of psalm \(abstract.psalmNumber) that conforms to the following quality and content standards:
+
+            1. Verse Highlight: The abstract should begin with a key highlight that best represents the central message or emphasis of the Psalm, reflecting its specific content and significance.
+            2. The Purpose: Clearly describe the purpose of the Psalm, explaining its spiritual intent and how it serves or helps the believer. Avoid mentioning the writer unless referring to the Psalm’s direct impact on worship or spiritual life.
+            3. Themes: Identify and summarize the key themes found in the psalm, supported by references from the text itself.
+            4. Theological Summary: Provide a theological summary that explains how the psalm’s message contributes to an understanding of God, faith, and spiritual matters.
+            5. Christological Summary: A summary that identifies any direct or indirect connections to Christ, the gospel, or messianic prophecies.
+            6. Parallels to Christian Faith and Application: Draw direct parallels to Christian teachings, using New Testament scriptures to illustrate how the message of the psalm is fulfilled or mirrored in Christ and His teachings, and give advice on how Christians today can apply the psalm’s lessons in their own lives.
+
+            When prompted with a specific psalm (e.g., “Psalm 23” or “23”), you must meet the following criteria:
+
+            1. The abstract should consist of 6 well-formed paragraphs that highlight the Psalm’s key message, its purpose, themes, and any theological and Christological significance.
+            2. The abstract should incorporate specific verses from the Psalm itself to support the identified themes, along with New Testament scripture to show how the psalm’s message relates to Christian faith, especially in connection to Christ.
+            3. The last paragraph should offer practical advice on how Christians can apply the psalm’s message in their daily lives. The response should remain brief yet thorough, never exceeding two paragraphs for the Christological and theological summaries combined.
             
-            1. Highlight: Begin with a standout insight or central message that reflects the heart of the Psalm.
+            """
+
+            let session = LanguageModelSession(instructions: instructions)
+
+            let prompt = "Write an abstract for Psalm \(abstract.psalmNumber) per your instructions."
+//            let response = try await session.respond(to: prompt).content
             
-            2. Purpose: Clearly articulate the spiritual and emotional purpose of the Psalm, especially how it encourages or guides believers in worship, trust, or repentance.
-            
-            3. Themes: Identify and support the Psalm's key themes (e.g., deliverance, divine justice, praise, lament, trust), citing specific verses.
-            
-            4. Theological and Christological Summary: In one or two concise paragraphs, explain how the Psalm contributes to an understanding of God, covenant, sin, grace, and salvation, and highlight any direct or indirect references to Christ, the gospel, or messianic fulfillment (with supporting New Testament passages where appropriate).
-            
-            5. Framework and Literary Structure: Identify structural patterns (e.g., lament-to-praise, parallelism, covenant appeals) and explain how these support the message of the Psalm.
-            
-            6. Memorable Quotes & Dual Interpretation: Extract key verses or phrases from the Psalm and explain each twice:
-               - For believers: as spiritual encouragement, theological depth, or worship guidance
-               - For non-believers: as universal wisdom, poetic insight, or ethical reflection
-            
-            7. Real-World Application: Offer practical, contemporary ways to apply the Psalm’s message, including illustrative case studies from personal experience, church history, or broader culture.
-            
-            8. Comparative Insight: Reference other psalms that are thematically, structurally, or emotionally similar, with a short explanation of how they relate or differ.
-            
-            9. Audience Contextualization: Explain how the Psalm’s message could be presented to believers, non-believers, or spiritually curious audiences, with attention to tone, relevance, and interpretive angle.
-            
-            All responses should remain concise but thorough, typically organized in six paragraphs or an equivalent structured format. The tone should be respectful, theologically grounded, and accessible to a wide readership.
-            
-            DO NOT ADD HEADERS.
-            """)
-            await queue.updateResponse(for: abstract.id, response: response.content)
+            try await queue.updateResponse(for: abstract.id, response: session.respond(to: prompt).content)
         } catch {
             await queue.updateResponse(for: abstract.id, response: "Error: \(error.localizedDescription)")
         }
