@@ -355,9 +355,15 @@ struct ContentView: View {
             let session = LanguageModelSession(instructions: instructions)
 
             let prompt = "Write an abstract for Psalm \(abstract.psalmNumber) per your instructions."
-//            let response = try await session.respond(to: prompt).content
+//            let response = try await session.respond(to: prompt, generating: AbstractPsalmResponse.self)
             
-            try await queue.updateResponse(for: abstract.id, response: session.respond(to: prompt).content)
+//            let stream = session.streamResponse(to: prompt, generating: AbstractPsalmResponse.self)
+//            
+//            for try await partial in stream {
+//                print(partial)
+//            }
+//            let response = try await session.respond(to: prompt)
+            await queue.updateResponse(for: abstract.id, response: (try await session.respond(to: prompt)).content) //.transcriptEntries.description)
         } catch {
             await queue.updateResponse(for: abstract.id, response: "Error: \(error.localizedDescription)")
         }
