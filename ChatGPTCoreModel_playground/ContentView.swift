@@ -78,102 +78,103 @@ struct ContentView: View {
             )
             .ignoresSafeArea()
             
-            VStack(content: {
-//                Text("Psalm")
-//                    .font(.title2)
+            VStack(alignment: .leading, content: {
+                Text("PSALM")
+                    .font(.body)
+                    .fontWeight(Font.Weight.bold)
                 
                 ZStack(alignment: (.trailing), content: {
                     
-                    HStack {
-                        TextField(("Enter a psalm (1-150)..."), text: $psalmNumberInput, axis: .horizontal)
-                            .padding(.leading)
-                        Spacer()
-                    }
+//                    HStack {
+//                        TextField(("Enter a psalm (1-150)..."), text: $psalmNumberInput, axis: .horizontal)
+//                            .padding(.leading)
+//                        Spacer()
+//                    }
                     
                     
                     HStack {
                         HStack {
-                            Button(action: {
-                                decrementPsalm()
-                            }) {
-                                Image(systemName: "minus.circle")
-                                    .foregroundColor(Color(UIColor.white))
-                                    .symbolRenderingMode(.hierarchical)
-                                    .font(.largeTitle)
-                                    .imageScale(.small)
-                                    .labelStyle(.iconOnly)
-                                    .clipShape(Circle())
-                                    .padding(8)
-                                    .glassEffect()
-                            }
-                            .simultaneousGesture(
-                                LongPressGesture().onEnded { _ in
-                                    startTimer(incrementing: false)
+                            Group {
+                                Button(action: {
+                                    decrementPsalm()
+                                }) {
+                                    Image(systemName: "minus.circle")
+                                        .foregroundColor(Color(UIColor.white))
+                                        .symbolRenderingMode(.hierarchical)
+                                        .font(.title)
+                                        .fontWeight(.medium)
+                                        .imageScale(.large)
+                                        .labelStyle(.iconOnly)
+                                        .clipShape(Circle())
+                                        .glassEffect()
                                 }
-                            )
-                            .simultaneousGesture(
-                                DragGesture(minimumDistance: 0).onEnded { _ in
-                                    stopTimer()
-                                }
-                            )
-                            .padding(.leading, 2)
-                            .buttonStyle(PlainButtonStyle())
-                            .shadow(color: Color.white.opacity(0.5), radius: 2, x: 2, y: 2)
-                            
-                            Spacer()
-                            
-                            // Number input field
-                            TextField("Psalm \(psalmNumber)", text: quotedPsalmNumberInput) //"Psalm", text: $psalmNumberInput)
-                                .keyboardType(.numberPad)
-                                .multilineTextAlignment(.center)
-                                .textFieldStyle(DefaultTextFieldStyle())
-                                .shadow(color: Color.black.opacity(0.5), radius: 2, x: 0, y: 0)
-                            
-                                .onChange(of: psalmNumberInput) { newValue in
-                                    let filtered = newValue.filter { "0123456789".contains($0) }
-                                    if let value = Int(filtered) {
-                                        psalmNumber = min(max(value, 1), 150)
+                                .simultaneousGesture(
+                                    LongPressGesture().onEnded { _ in
+                                        startTimer(incrementing: false)
                                     }
-                                    psalmNumberInput = "\(psalmNumber)"
-                                }
-                                .font(.largeTitle)
-                                .foregroundColor(Color(UIColor.white))
-                                .background(Color(UIColor.clear))
-                                .padding(4)
-                            
-                            Spacer()
-                            
-                            Button(action: {
-                                incrementPsalm()
-                            }) {
-                                Image(systemName: "plus.circle")
-                                    .padding(8)
+                                )
+                                .simultaneousGesture(
+                                    DragGesture(minimumDistance: 0).onEnded { _ in
+                                        stopTimer()
+                                    }
+                                )
+                                .buttonStyle(PlainButtonStyle())
+                                .shadow(color: Color.white.opacity(0.5), radius: 2, x: 0, y: 0)
+                                
+                                // Number input field
+                                TextField("Psalm \(psalmNumber)", text: quotedPsalmNumberInput) //"Psalm", text: $psalmNumberInput)
+                                    .keyboardType(.numberPad)
+                                    .multilineTextAlignment(.center)
+                                    .textFieldStyle(DefaultTextFieldStyle())
+                                    .font(.title)
+                                    .fontWeight(.semibold)
+                                    .shadow(color: Color.black.opacity(0.5), radius: 2, x: 0, y: 0)
+                                
+                                    .onChange(of: psalmNumberInput) { newValue in
+                                        let filtered = newValue.filter { "0123456789".contains($0) }
+                                        if let value = Int(filtered) {
+                                            psalmNumber = min(max(value, 1), 150)
+                                        }
+                                        psalmNumberInput = "\(psalmNumber)"
+                                    }
                                     .foregroundColor(Color(UIColor.white))
-                                    .symbolRenderingMode(.hierarchical)
-                                    .font(.largeTitle)
-                                    .imageScale(.small)
-                                    .labelStyle(.iconOnly)
-                                    .clipShape(Circle())
-                                    .glassEffect()
+                                    .background(Color(UIColor.clear))
+                                //                                .padding(4)
+                                
+                                //                            Spacer()
+                                
+                                Button(action: {
+                                    incrementPsalm()
+                                }) {
+                                    Image(systemName: "plus.circle")
+                                        .foregroundColor(Color(UIColor.white))
+                                        .symbolRenderingMode(.hierarchical)
+                                        .font(.title)
+                                        .fontWeight(.medium)
+                                        .imageScale(.large)
+                                        .labelStyle(.iconOnly)
+                                        .clipShape(Circle())
+                                        .glassEffect()
+                                }
+                                .simultaneousGesture(
+                                    LongPressGesture().onEnded { _ in
+                                        startTimer(incrementing: true)
+                                    }
+                                )
+                                .simultaneousGesture(
+                                    DragGesture(minimumDistance: 0).onEnded { _ in
+                                        stopTimer()
+                                    }
+                                )
+                                .buttonStyle(PlainButtonStyle())
+                                .shadow(color: Color.white.opacity(0.5), radius: 2, x: 0, y: 0)
                             }
-                            .simultaneousGesture(
-                                LongPressGesture().onEnded { _ in
-                                    startTimer(incrementing: true)
-                                }
-                            )
-                            .simultaneousGesture(
-                                DragGesture(minimumDistance: 0).onEnded { _ in
-                                    stopTimer()
-                                }
-                            )
-                            .padding(.trailing, 2)
-                            .buttonStyle(PlainButtonStyle())
-                            .shadow(color: Color.white.opacity(0.5), radius: 2, x: 2, y: 2)
+                            .padding(4)
                         }
+                        .background(Color.init(uiColor: UIColor(white: 1.0, alpha: 0.1)))
+                        .clipShape(RoundedRectangle(cornerSize: CGSize(width: 25, height: 25), style: .continuous))
+                        .padding(.trailing, 75)
                     }
-                    .background(Color.init(uiColor: UIColor(white: 1.0, alpha: 0.2)))
-                    .clipShape(RoundedRectangle(cornerSize: CGSize(width: 25, height: 25), style: .continuous))
-                    .padding(.trailing, 75)
                     
                     Button {
                         dismissKeyboard()
@@ -190,7 +191,7 @@ struct ContentView: View {
                     }
 //                    .padding(.leading, 100)
                     .glassEffect(in: .rect(cornerRadius: 25.0))
-                    .shadow(color: Color.white.opacity(0.5), radius: 2, x: 2, y: 2)
+//                    .shadow(color: Color.white.opacity(0.5), radius: 2, x: 2, y: 2)
                 })
                 
                 ScrollView {
@@ -200,7 +201,7 @@ struct ContentView: View {
                                 Text("Psalm \(item.psalmNumber)")
                                     .font(.title2)
                                     .fontWeight(.medium)
-                                    .padding(.vertical)
+                                    .padding()
                                     .frame(idealWidth: UIScreen.main.bounds.size.width, maxWidth: UIScreen.main.bounds.size.width)
                                     .glassEffect(in: .rect(cornerRadius: 25.0))
                                 
@@ -212,13 +213,14 @@ struct ContentView: View {
                                 } else {
                                     ProgressView()
                                         .progressViewStyle(CircularProgressViewStyle())
+                                        .frame(maxWidth: UIScreen.main.bounds.size.width, alignment: .center)
                                 }
                             }
                             .padding()
-                            .background(Color.gray.opacity(0.1))
-                            .cornerRadius(28)
+//                            .background(Color.gray.opacity(0.1))
+//                            .cornerRadius(25)
                             .glassEffect(in: .rect(cornerRadius: 25.0))
-                            .padding(.vertical)
+//                            .padding(.all)
                         }
                     }
 //                    .padding(.bottom, 50)
@@ -229,7 +231,7 @@ struct ContentView: View {
 //                .frame(width: .infinity, height: .infinity)
 //                .border(Color.white.opacity(1.0), width: 0.2)
 //                .backgroundStyle(Color.white.opacity(1.0))
-                .ignoresSafeArea()
+//                .ignoresSafeArea()
             })
             .padding()
             .onAppear {
