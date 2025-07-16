@@ -69,21 +69,21 @@ struct ContentView: View {
         ZStack {
             // Linear gradient background
             LinearGradient(
-                    gradient: Gradient(colors: [
-                        Color.primary.opacity(0.25),
-                        Color.accentColor.opacity(0.25)
-                    ]),
-                    startPoint: .bottomTrailing,
-                    endPoint: .topLeading
-                )
-                .ignoresSafeArea()
+                gradient: Gradient(colors: [
+                    Color.primary.opacity(0.25),
+                    Color.accentColor.opacity(0.25)
+                ]),
+                startPoint: .bottomTrailing,
+                endPoint: .topLeading
+            )
+            .ignoresSafeArea()
             
             VStack(content: {
 //                Text("Psalm")
-//                    .font(.title)
-//                    .padding(.bo)
+//                    .font(.title2)
                 
-                ZStack(alignment: (.center), content: {
+                ZStack(alignment: (.trailing), content: {
+                    
                     HStack {
                         TextField(("Enter a psalm (1-150)..."), text: $psalmNumberInput, axis: .horizontal)
                             .padding(.leading)
@@ -92,160 +92,117 @@ struct ContentView: View {
                     
                     
                     HStack {
-                        Button(action: {
-                            decrementPsalm()
-                        }) {
-                            Image(systemName: "minus.circle")
-                                .foregroundColor(Color(UIColor.white))
-                                .symbolRenderingMode(.hierarchical)
-                                .font(.largeTitle)
-                                .imageScale(.small)
-                                .labelStyle(.iconOnly)
-                                .clipShape(Circle())
-                                .padding(8)
-                                .glassEffect()
-//                                .font(.largeTitle)
-//                                .padding(10)
-//                                .glassEffect(.regular.interactive(), in: DefaultGlassEffectShape())
-//                                .background(Color.clear)
-//                                .foregroundColor(Color.white)
-                            
-                        }
-                        .simultaneousGesture(
-                            LongPressGesture().onEnded { _ in
-                                startTimer(incrementing: false)
+                        HStack {
+                            Button(action: {
+                                decrementPsalm()
+                            }) {
+                                Image(systemName: "minus.circle")
+                                    .foregroundColor(Color(UIColor.white))
+                                    .symbolRenderingMode(.hierarchical)
+                                    .font(.largeTitle)
+                                    .imageScale(.small)
+                                    .labelStyle(.iconOnly)
+                                    .clipShape(Circle())
+                                    .padding(8)
+                                    .glassEffect()
                             }
-                        )
-                        .simultaneousGesture(
-                            DragGesture(minimumDistance: 0).onEnded { _ in
-                                stopTimer()
-                            }
-                        )
-                        .padding(.leading, 2)
-                        .buttonStyle(PlainButtonStyle())
-                        .shadow(color: Color.white.opacity(0.5), radius: 2, x: 2, y: 2)
-                        
-                        Spacer()
-                        
-                        // Number input field
-                        TextField("Psalm \(psalmNumber)", text: quotedPsalmNumberInput) //"Psalm", text: $psalmNumberInput)
-                            .keyboardType(.numberPad)
-                            .multilineTextAlignment(.center)
-                            .textFieldStyle(DefaultTextFieldStyle())
-                            .shadow(color: Color.black.opacity(0.5), radius: 2, x: 0, y: 0)
-                            
-                            .onChange(of: psalmNumberInput) { newValue in
-                                let filtered = newValue.filter { "0123456789".contains($0) }
-                                if let value = Int(filtered) {
-                                    psalmNumber = min(max(value, 1), 150)
+                            .simultaneousGesture(
+                                LongPressGesture().onEnded { _ in
+                                    startTimer(incrementing: false)
                                 }
-                                psalmNumberInput = "\(psalmNumber)"
-                            }
-                            .font(.largeTitle)
-                            .foregroundColor(Color(UIColor.white))
-                            .background(Color(UIColor.clear))
-                            .padding(4)
-                        
-//                            .glassEffect()
-                        
-                        Spacer()
-                        
-                        Button(action: {
-                            incrementPsalm()
-                        }) {
-                            Image(systemName: "plus.circle")
-                                .padding(8)
-                                .foregroundColor(Color(UIColor.white))
-                                .symbolRenderingMode(.hierarchical)
+                            )
+                            .simultaneousGesture(
+                                DragGesture(minimumDistance: 0).onEnded { _ in
+                                    stopTimer()
+                                }
+                            )
+                            .padding(.leading, 2)
+                            .buttonStyle(PlainButtonStyle())
+                            .shadow(color: Color.white.opacity(0.5), radius: 2, x: 2, y: 2)
+                            
+                            Spacer()
+                            
+                            // Number input field
+                            TextField("Psalm \(psalmNumber)", text: quotedPsalmNumberInput) //"Psalm", text: $psalmNumberInput)
+                                .keyboardType(.numberPad)
+                                .multilineTextAlignment(.center)
+                                .textFieldStyle(DefaultTextFieldStyle())
+                                .shadow(color: Color.black.opacity(0.5), radius: 2, x: 0, y: 0)
+                            
+                                .onChange(of: psalmNumberInput) { newValue in
+                                    let filtered = newValue.filter { "0123456789".contains($0) }
+                                    if let value = Int(filtered) {
+                                        psalmNumber = min(max(value, 1), 150)
+                                    }
+                                    psalmNumberInput = "\(psalmNumber)"
+                                }
                                 .font(.largeTitle)
-                                .imageScale(.small)
-                                .labelStyle(.iconOnly)
-                                .clipShape(Circle())
-                                .glassEffect()
-//                                .font(.largeTitle)
-//                                .padding(10)
-//                                .glassEffect(.regular.interactive(), in: DefaultGlassEffectShape())
-//                                .background(Color.clear)
-//                                .foregroundColor(Color.white)
+                                .foregroundColor(Color(UIColor.white))
+                                .background(Color(UIColor.clear))
+                                .padding(4)
+                            
+                            Spacer()
+                            
+                            Button(action: {
+                                incrementPsalm()
+                            }) {
+                                Image(systemName: "plus.circle")
+                                    .padding(8)
+                                    .foregroundColor(Color(UIColor.white))
+                                    .symbolRenderingMode(.hierarchical)
+                                    .font(.largeTitle)
+                                    .imageScale(.small)
+                                    .labelStyle(.iconOnly)
+                                    .clipShape(Circle())
+                                    .glassEffect()
+                            }
+                            .simultaneousGesture(
+                                LongPressGesture().onEnded { _ in
+                                    startTimer(incrementing: true)
+                                }
+                            )
+                            .simultaneousGesture(
+                                DragGesture(minimumDistance: 0).onEnded { _ in
+                                    stopTimer()
+                                }
+                            )
+                            .padding(.trailing, 2)
+                            .buttonStyle(PlainButtonStyle())
+                            .shadow(color: Color.white.opacity(0.5), radius: 2, x: 2, y: 2)
                         }
-                        .simultaneousGesture(
-                            LongPressGesture().onEnded { _ in
-                                startTimer(incrementing: true)
-                            }
-                        )
-                        .simultaneousGesture(
-                            DragGesture(minimumDistance: 0).onEnded { _ in
-                                stopTimer()
-                            }
-                        )
-                        .padding(.trailing, 2)
-                        .buttonStyle(PlainButtonStyle())
-                        .shadow(color: Color.white.opacity(0.5), radius: 2, x: 2, y: 2)
                     }
-                    //            .ignoresSafeArea()
-                    //            .background(Color.init(uiColor: UIColor(white: 1.0, alpha: 0.2)))
-                    //            .clipShape(RoundedRectangle(cornerSize: CGSize(width: 25, height: 25), style: .continuous))
-                })
-                //        .ignoresSafeArea()
-                .background(Color.init(uiColor: UIColor(white: 1.0, alpha: 0.2)))
-                .clipShape(RoundedRectangle(cornerSize: CGSize(width: 25, height: 25), style: .continuous))
-                .padding(.vertical)
- 
-                // Add to queue and run
-                HStack {
-                    Spacer()
-                    Button(action: {
+                    .background(Color.init(uiColor: UIColor(white: 1.0, alpha: 0.2)))
+                    .clipShape(RoundedRectangle(cornerSize: CGSize(width: 25, height: 25), style: .continuous))
+                    .padding(.trailing, 75)
+                    
+                    Button {
                         dismissKeyboard()
                         addPsalmAndRun()
-                    }) {
-                        Label {
-                            Text("Abstract")
-//                                .font(.title3)
-//                                .fontWeight(.semibold)
-//                                .foregroundColor(.primary)
-//                                .frame(alignment: .center)
-                        } icon: {
-                            Image(systemName: "pencil")
-                                .foregroundColor(Color(UIColor.white))
-                                .symbolRenderingMode(.hierarchical)
-                                .font(.largeTitle)
-                                .imageScale(.small)
-                                .labelStyle(.iconOnly)
-                                .clipShape(Circle())
-                                .padding(6)
-                                .glassEffect()
-                            //                            .resizable()
-                            //                            .scaledToFit()
-                            //                            .frame(width: 24, height: 24)
-                            //                            .clipShape(RoundedRectangle(cornerRadius: 4))
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 10)
-                        .background(
-                            LinearGradient(
-                                gradient: Gradient(colors: [Color.accentColor.opacity(0.2), Color.accentColor.opacity(0.4)]),
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .stroke(Color.accentColor, lineWidth: 1.5)
-                        )
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                    } label: {
+                        Image(systemName: "pencil")
+                            .padding(8)
+                            .foregroundColor(Color(UIColor.white))
+                            .symbolRenderingMode(.monochrome)
+                            .font(.largeTitle)
+                            .imageScale(.medium)
+                            .labelStyle(.iconOnly)
+                            .clipShape(Circle())
                     }
-                    .buttonStyle(DefaultButtonStyle())
-                    .shadow(color: Color.accentColor.opacity(1.4), radius: 2, x: 2, y: 2)
-                }
-            
+//                    .padding(.leading, 100)
+                    .glassEffect(in: .rect(cornerRadius: 25.0))
+                    .shadow(color: Color.white.opacity(0.5), radius: 2, x: 2, y: 2)
+                })
+                
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
                         ForEach(abstracts) { item in
                             VStack(alignment: .leading, spacing: 8) {
                                 Text("Psalm \(item.psalmNumber)")
-                                    .font(.headline)
-                                    .padding()
-                                    .glassEffect() //(in: .rect(cornerRadius: 16.0))
+                                    .frame(maxWidth: UIScreen.main.bounds.width)
+                                    .font(.title2)
+                                    .fontWeight(.medium)
+                                    .padding(.vertical)
+                                    .glassEffect(in: .rect(cornerRadius: 25.0))
                                 
                                 if item.isCompleted {
                                     Text(item.response)
@@ -257,10 +214,14 @@ struct ContentView: View {
                             }
                             .padding()
                             .background(Color.gray.opacity(0.1))
-                            .cornerRadius(8)
+                            .cornerRadius(28)
+                            .glassEffect(in: .rect(cornerRadius: 25.0))
+                            .padding()
                         }
                     }
-                    .padding()
+                    .padding(.bottom, 50)
+                    
+                    Spacer()
                 }
             })
             .padding()
@@ -271,7 +232,25 @@ struct ContentView: View {
                 }
             }
             
-            
+            VStack {
+                Spacer()
+                
+                HStack(alignment: .bottom, content: {
+                    Spacer()
+                    Text("James Alan Bush")
+                        .font(.caption)
+                        .foregroundColor(.primary)
+                    
+                    Spacer()
+                    
+                    Text("Commit ID 352d187")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                    Spacer()
+                })
+                .padding(.top, 25)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
     
@@ -345,8 +324,8 @@ struct ContentView: View {
                                  in shape: some Shape = DefaultGlassEffectShape()) -> some View
     {
         self
-//            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12))
-//            .clipShape(RoundedRectangle(cornerRadius: 12))
+        //            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12))
+        //            .clipShape(RoundedRectangle(cornerRadius: 12))
     }
     
     private func runPsalmAbstract(_ abstract: PsalmAbstract) async {
@@ -354,29 +333,29 @@ struct ContentView: View {
             let session = LanguageModelSession()
             let response = try await session.respond(to: """
             AbstractGPT analyzes and summarizes Psalm \(abstract.psalmNumber) through a structured, blended approach that combines traditional Christian interpretation with expanded relevance for broader audiences. It produces a rich, multi-layered abstract that includes spiritual insight, theological depth, and real-world application. For each Psalm input, it delivers:
-
+            
             1. Highlight: Begin with a standout insight or central message that reflects the heart of the Psalm.
-
+            
             2. Purpose: Clearly articulate the spiritual and emotional purpose of the Psalm, especially how it encourages or guides believers in worship, trust, or repentance.
-
+            
             3. Themes: Identify and support the Psalm's key themes (e.g., deliverance, divine justice, praise, lament, trust), citing specific verses.
-
+            
             4. Theological and Christological Summary: In one or two concise paragraphs, explain how the Psalm contributes to an understanding of God, covenant, sin, grace, and salvation, and highlight any direct or indirect references to Christ, the gospel, or messianic fulfillment (with supporting New Testament passages where appropriate).
-
+            
             5. Framework and Literary Structure: Identify structural patterns (e.g., lament-to-praise, parallelism, covenant appeals) and explain how these support the message of the Psalm.
-
+            
             6. Memorable Quotes & Dual Interpretation: Extract key verses or phrases from the Psalm and explain each twice:
                - For believers: as spiritual encouragement, theological depth, or worship guidance
                - For non-believers: as universal wisdom, poetic insight, or ethical reflection
-
+            
             7. Real-World Application: Offer practical, contemporary ways to apply the Psalm’s message, including illustrative case studies from personal experience, church history, or broader culture.
-
+            
             8. Comparative Insight: Reference other psalms that are thematically, structurally, or emotionally similar, with a short explanation of how they relate or differ.
-
+            
             9. Audience Contextualization: Explain how the Psalm’s message could be presented to believers, non-believers, or spiritually curious audiences, with attention to tone, relevance, and interpretive angle.
-
+            
             All responses should remain concise but thorough, typically organized in six paragraphs or an equivalent structured format. The tone should be respectful, theologically grounded, and accessible to a wide readership.
-
+            
             DO NOT ADD HEADERS.
             """)
             await queue.updateResponse(for: abstract.id, response: response.content)
@@ -412,7 +391,7 @@ struct ContentView: View {
 //import FoundationModels
 //
 //struct ContentView: View {
-//    
+//
 //    // Example queued prompts
 //    @State private var prompts: [String] = [
 //        """
@@ -425,15 +404,15 @@ struct ContentView: View {
 //        Write an abstract of Psalm 34 that is concise, stand-alone, and includes modern relevance.
 //        """
 //    ]
-//    
+//
 //    // Results of each response
 //    @State private var results: [PromptResult] = []
-//    
+//
 //    var body: some View {
 //        VStack(spacing: 20) {
 //            Text("Queued Prompts")
 //                .font(.headline)
-//            
+//
 //            List {
 //                ForEach(prompts, id: \.self) { prompt in
 //                    Text(prompt.prefix(50) + "...")
@@ -442,17 +421,17 @@ struct ContentView: View {
 //                }
 //            }
 //            .frame(height: 200)
-//            
+//
 //            Button("Run All Prompts") {
 //                Task {
 //                    await runAllPrompts()
 //                }
 //            }
 //            .padding()
-//            
+//
 //            Text("Results")
 //                .font(.headline)
-//            
+//
 //            ScrollView {
 //                VStack(alignment: .leading, spacing: 20) {
 //                    ForEach(results) { result in
@@ -463,7 +442,7 @@ struct ContentView: View {
 //                            Text(result.prompt)
 //                                .font(.footnote)
 //                                .foregroundColor(.secondary)
-//                            
+//
 //                            Text("Response:")
 //                                .font(.subheadline)
 //                                .bold()
@@ -480,10 +459,10 @@ struct ContentView: View {
 //        }
 //        .padding()
 //    }
-//    
+//
 //    func runAllPrompts() async {
 //        results = [] // Clear previous results
-//        
+//
 //        await withTaskGroup(of: PromptResult?.self) { group in
 //            for prompt in prompts {
 //                group.addTask {
@@ -497,7 +476,7 @@ struct ContentView: View {
 //                    }
 //                }
 //            }
-//            
+//
 //            for await result in group {
 //                if let result = result {
 //                    await MainActor.run {
@@ -534,21 +513,21 @@ struct ContentView: View {
 ////struct ContentView: View {
 ////    @Environment(\.modelContext) private var modelContext
 ////    @Query private var items: [Item]
-////    
+////
 ////    @State private var psalmNumber: Int = 34
 ////    @State private var psalmAbstract: String = ""
-////    
+////
 ////    // Timer properties
 ////    @State private var timer: Timer?
 ////    @State private var timerInterval: TimeInterval = 0.5
 ////    @State private var isIncrementing: Bool = true
-////    
+////
 ////    var body: some View {
 ////        VStack(spacing: 20) {
-////            
+////
 ////            Text("Psalm \(psalmNumber)")
 ////                .font(.title)
-////            
+////
 ////            HStack(spacing: 40) {
 ////                Button(action: {
 ////                    decrementPsalm()
@@ -566,7 +545,7 @@ struct ContentView: View {
 ////                        stopTimer()
 ////                    }
 ////                )
-////                
+////
 ////                Button(action: {
 ////                    incrementPsalm()
 ////                }) {
@@ -584,7 +563,7 @@ struct ContentView: View {
 ////                    }
 ////                )
 ////            }
-////            
+////
 ////            Button(action: {
 ////                Task {
 ////                    await generatePsalmAbstract()
@@ -593,35 +572,35 @@ struct ContentView: View {
 ////                Label("Generate Abstract", systemImage: "text.book.closed")
 ////            }
 ////            .padding()
-////            
+////
 ////            ScrollView {
 ////                Text(psalmAbstract)
 ////                    .frame(maxWidth: .infinity, alignment: .leading)
 ////                    .padding()
 ////            }
 ////            .border(Color.gray.opacity(0.4))
-////            
+////
 ////        }
 ////        .padding()
 ////    }
-////    
+////
 ////    private func incrementPsalm() {
 ////        if psalmNumber < 150 {
 ////            psalmNumber += 1
 ////        }
 ////    }
-////    
+////
 ////    private func decrementPsalm() {
 ////        if psalmNumber > 1 {
 ////            psalmNumber -= 1
 ////        }
 ////    }
-////    
+////
 ////    private func startTimer(incrementing: Bool) {
 ////        isIncrementing = incrementing
 ////        timerInterval = 0.5 // start slower
 ////        stopTimer()
-////        
+////
 ////        timer = Timer.scheduledTimer(withTimeInterval: timerInterval, repeats: true) { _ in
 ////            if isIncrementing {
 ////                incrementPsalm()
@@ -631,12 +610,12 @@ struct ContentView: View {
 ////            accelerateScrolling()
 ////        }
 ////    }
-////    
+////
 ////    private func stopTimer() {
 ////        timer?.invalidate()
 ////        timer = nil
 ////    }
-////    
+////
 ////    private func accelerateScrolling() {
 ////        if timerInterval > 0.1 {
 ////            timerInterval -= 0.05
@@ -651,7 +630,7 @@ struct ContentView: View {
 ////            }
 ////        }
 ////    }
-////    
+////
 ////    func generatePsalmAbstract() async {
 ////        do {
 ////            let session = LanguageModelSession()
@@ -683,7 +662,7 @@ struct ContentView: View {
 ////                DO NOT ADD HEADERS.
 ////                """
 ////            )
-////            
+////
 ////            $psalmAbstract.wrappedValue = response.content
 ////        } catch {
 ////            psalmAbstract = "Failed to generate abstract: \(error.localizedDescription)"
@@ -711,16 +690,16 @@ struct ContentView: View {
 //////struct ContentView: View {
 //////    @Environment(\.modelContext) private var modelContext
 //////    @Query private var items: [Item]
-//////    
+//////
 //////    @State private var psalmNumber: Int = 34 // ✅ Default Psalm number
 //////    @State private var psalmAbstract: String = "" // ✅ Holds the generated response
-//////    
+//////
 //////    var body: some View {
 //////        VStack(spacing: 20) {
 //////            // ✅ Number Stepper
 //////            Stepper("Psalm \(psalmNumber)", value: $psalmNumber, in: 1...150)
 //////                .padding()
-//////            
+//////
 //////            // ✅ Generate Button
 //////            Button(action: {
 //////                Task {
@@ -730,7 +709,7 @@ struct ContentView: View {
 //////                Label("Generate Abstract", systemImage: "text.book.closed")
 //////            }
 //////            .padding()
-//////            
+//////
 //////            // ✅ Scrollable Text View for Response
 //////            ScrollView {
 //////                Text(psalmAbstract)
@@ -741,7 +720,7 @@ struct ContentView: View {
 //////        }
 //////        .padding()
 //////    }
-//////    
+//////
 //////    func generatePsalmAbstract() async {
 //////        do {
 //////            let session = LanguageModelSession()
@@ -773,7 +752,7 @@ struct ContentView: View {
 //////                DO NOT ADD HEADERS.
 //////                """
 //////            )
-//////            
+//////
 //////            $psalmAbstract.wrappedValue = response.content // ✅ Or use .content if that’s the actual property
 //////        } catch {
 //////            psalmAbstract = "Failed to generate abstract: \(error.localizedDescription)"
@@ -795,11 +774,11 @@ struct ContentView: View {
 ////////struct ContentView: View {
 ////////    @Environment(\.modelContext) private var modelContext
 ////////    @Query private var items: [Item]
-////////    
+////////
 ////////    @State private var psalm34Abstract: String = "" // ✅ State to hold the response
-////////    
+////////
 ////////    var body: some View {
-////////        
+////////
 ////////        Button(action: {
 ////////            Task {
 ////////                await getPsalm34Abstract()
@@ -807,7 +786,7 @@ struct ContentView: View {
 ////////        }) {
 ////////            Label("Get Psalm 34 Abstract", systemImage: "text.book.closed")
 ////////        }
-////////        
+////////
 ////////        Text($psalm34Abstract.wrappedValue)
 ////////    }
 ////////
