@@ -206,8 +206,9 @@ struct ContentView: View {
                                 
                                 if item.isCompleted {
                                     Text(item.response)
+                                        .dynamicTypeSize(DynamicTypeSize.xSmall)
                                         .font(.body)
-                                        .frame(width: .infinity)
+                                        .frame(maxWidth: UIScreen.main.bounds.size.width)
                                 } else {
                                     ProgressView()
                                         .progressViewStyle(CircularProgressViewStyle())
@@ -333,28 +334,22 @@ struct ContentView: View {
     
     private func runPsalmAbstract(_ abstract: PsalmAbstract) async {
         do {
-            let instructions = """
+            let instructions: Instructions = Instructions("""
             Your instructions:
-            You will write an abstract of psalm \(abstract.psalmNumber) that conforms to the following quality and content standards:
-
-            1. Verse Highlight: The abstract should begin with a key highlight that best represents the central message or emphasis of the Psalm, reflecting its specific content and significance.
-            2. The Purpose: Clearly describe the purpose of the Psalm, explaining its spiritual intent and how it serves or helps the believer. Avoid mentioning the writer unless referring to the Psalm’s direct impact on worship or spiritual life.
-            3. Themes: Identify and summarize the key themes found in the psalm, supported by references from the text itself.
-            4. Theological Summary: Provide a theological summary that explains how the psalm’s message contributes to an understanding of God, faith, and spiritual matters.
-            5. Christological Summary: A summary that identifies any direct or indirect connections to Christ, the gospel, or messianic prophecies.
-            6. Parallels to Christian Faith and Application: Draw direct parallels to Christian teachings, using New Testament scriptures to illustrate how the message of the psalm is fulfilled or mirrored in Christ and His teachings, and give advice on how Christians today can apply the psalm’s lessons in their own lives.
-
-            When prompted with a specific psalm (e.g., “Psalm 23” or “23”), you must meet the following criteria:
-
-            1. The abstract should consist of 6 well-formed paragraphs that highlight the Psalm’s key message, its purpose, themes, and any theological and Christological significance.
-            2. The abstract should incorporate specific verses from the Psalm itself to support the identified themes, along with New Testament scripture to show how the psalm’s message relates to Christian faith, especially in connection to Christ.
-            3. The last paragraph should offer practical advice on how Christians can apply the psalm’s message in their daily lives. The response should remain brief yet thorough, never exceeding two paragraphs for the Christological and theological summaries combined.
             
-            """
+            When prompted with a specific psalm (e.g., “Psalm 23” or “23”), you will write a six-paragraph abstract of psalm \(abstract.psalmNumber). Following is a description of each paragraph (i.e., its topic); do not number the paragraphs or precede each paragraph with a topic summation:
 
-            let session = LanguageModelSession(instructions: instructions)
+            1. The abstract should begin with a key highlight that best represents the central message or emphasis of the Psalm, reflecting its specific content and significance.
+            2. Clearly describe the purpose of the Psalm, explaining its spiritual intent and how it serves or helps the believer. Avoid mentioning the writer unless referring to the Psalm’s direct impact on worship or spiritual life.
+            3. Identify and summarize the key themes found in the psalm, supported by references from the text itself.
+            4. Provide a theological summary that explains how the psalm’s message contributes to an understanding of God, faith, and spiritual matters.
+            5. Write a Christological summary that identifies any direct or indirect connections to Christ, the gospel, or messianic prophecies.
+            6. Draw direct parallels to Christian teachings, using New Testament scriptures to illustrate how the message of the psalm is fulfilled or mirrored in Christ and His teachings, and give advice on how Christians today can apply the psalm’s lessons in their own lives.
+            """)
 
-            let prompt = "Write an abstract for Psalm \(abstract.psalmNumber) per your instructions."
+            let session: LanguageModelSession = LanguageModelSession(instructions: instructions)
+
+            let prompt: Prompt = Prompt("Write an abstract for Psalm \(abstract.psalmNumber) per your instructions.")
 //            let response = try await session.respond(to: prompt, generating: AbstractPsalmResponse.self)
             
 //            let stream = session.streamResponse(to: prompt, generating: AbstractPsalmResponse.self)
