@@ -78,6 +78,8 @@ struct ContentView: View {
             )
             .ignoresSafeArea()
             
+            ContentTestView()
+            
             VStack(alignment: .leading, content: {
                 Text("PSALM")
                     .font(.body)
