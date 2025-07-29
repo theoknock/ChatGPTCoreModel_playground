@@ -294,12 +294,6 @@ struct ContentView: View {
         let snippet = fullText[startRange.lowerBound..<endIndex]
         return snippet.trimmingCharacters(in: .whitespacesAndNewlines)
     }
-//    // Example usage:
-//    if let psalm = loadPsalm(number: 23) {
-//        print(psalm)
-//    } else {
-//        print("Psalm not found.")
-//    }
     
     // MARK: - Stepper Logic
     private func incrementPsalm() {
@@ -364,12 +358,11 @@ struct ContentView: View {
     }
     
     private func runPsalmAbstract(_ abstract: PsalmAbstract) async {
+        var path = Bundle.main.path(forResource: "Psalms", ofType: "txt")
+        var allText = (try? String(contentsOfFile: path!)) ?? String()
+        let psalm = psalmText(from: allText, number: abstract.psalmNumber)
+        
         do {
-            if let path = Bundle.main.path(forResource: "Psalms", ofType: "txt"),
-               let allText = try? String(contentsOfFile: path),
-               let psalmText = psalmText(from: allText, number: abstract.psalmNumber) {
-                print(psalmText)
-            }
             let instructions: Instructions = Instructions("""
             Your instructions:
             
@@ -378,12 +371,12 @@ struct ContentView: View {
             IMPORTANT: Cite your source for every sentence you write in every paragraph (include verse(s) or excerpt(s)).
             ALSO IMPORTANT: Cite the entire psalm before generating the abstract.
 
-            1. The abstract should begin with a key highlight that best represents the central message or emphasis of the Psalm, reflecting its specific content and significance.
-            2. Clearly describe the purpose of the Psalm, explaining its spiritual intent and how it serves or helps the believer. Avoid mentioning the writer unless referring to the Psalm’s direct impact on worship or spiritual life.
-            3. Identify and summarize the key themes found in the psalm, supported by references from the text itself.
-            4. Provide a theological summary that explains how the psalm’s message contributes to an understanding of God, faith, and spiritual matters.
-            5. Write a Christological summary that identifies any direct or indirect connections to Christ, the gospel, or messianic prophecies.
-            6. Draw direct parallels to Christian teachings, using New Testament scriptures to illustrate how the message of the psalm is fulfilled or mirrored in Christ and His teachings, and give advice on how Christians today can apply the psalm’s lessons in their own lives.
+            1. The abstract should begin with a key highlight that best represents the central message or emphasis of the Psalm, reflecting its specific content and significance. Include at least one quote or citation from the psalm.
+            2. Clearly describe the purpose of the Psalm, explaining its spiritual intent and how it serves or helps the believer. Avoid mentioning the writer unless referring to the Psalm’s direct impact on worship or spiritual life. Include at least one quote or citation from the psalm.
+            3. Identify and summarize the key themes found in the psalm, supported by references from the text itself. Include at least one quote or citation from the psalm.
+            4. Provide a theological summary that explains how the psalm’s message contributes to an understanding of God, faith, and spiritual matters. Include at least one quote or citation from the psalm.
+            5. Write a Christological summary that identifies any direct or indirect connections to Christ, the gospel, or messianic prophecies. Include at least one quote or citation from the psalm.
+            6. Draw direct parallels to Christian teachings, using New Testament scriptures to illustrate how the message of the psalm is fulfilled or mirrored in Christ and His teachings, and give advice on how Christians today can apply the psalm’s lessons in their own lives. Include at least one quote or citation from the psalm.
 
             DID YOU REMEMBER TO QUOTE OR CITE THE ENTIRE PSALM? IF SO, DO IT HERE. FOLLOWING IS SAMPLE OUTPUT FOR PSALM 23:
 
