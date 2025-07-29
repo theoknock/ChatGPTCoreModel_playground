@@ -11,129 +11,155 @@ struct ContentTestView: View {
     @State private var plusStepCount: Int = 0
     
     var body: some View {
-        VStack(spacing: 20) {
-            Text("PSALM")
-                .font(.caption)
-                .fontWeight(.medium)
-                .foregroundColor(.secondary)
+        
+        ZStack {
+            // Linear gradient background
+            LinearGradient(
+                gradient: Gradient(colors: [
+                    Color.primary.opacity(0.25),
+                    Color.accentColor.opacity(0.25)
+                ]),
+                startPoint: .bottomTrailing,
+                endPoint: .topLeading
+            )
+            .ignoresSafeArea()
             
-            // Custom Stepper Control
-            HStack(spacing: 0) {
-                // Minus button
-                Button(action: {}) {
-                    Image(systemName: "minus.circle")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(.primary)
-                        .frame(width: 32, height: 32)
-                }
-                .disabled(psalmValue <= 1)
-                .simultaneousGesture(
-                    DragGesture(minimumDistance: 0)
-                        .onChanged { _ in
-                            if minusTimer == nil && psalmValue > 1 {
-                                decrementValue()
-                                startMinusTimer()
-                            }
-                        }
-                        .onEnded { _ in
-                            stopMinusTimer()
-                        }
-                )
+            VStack(spacing: 20) {
+                Text("PSALM")
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .foregroundColor(.secondary)
                 
-                // Editable value display
-                TextField("", text: $psalmStringValue)
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(.primary)
-                    .frame(width: 50)
-                    .multilineTextAlignment(.center)
-                    .keyboardType(.numberPad)
-                    .focused($isTextFieldFocused)
-                    .onChange(of: psalmStringValue) { newValue in
-                        // Filter out non-numeric characters
-                        let filtered = newValue.filter { $0.isNumber }
-                        if filtered != newValue {
-                            psalmStringValue = filtered
-                        }
-                        
-                        // Update the integer value only if not empty
-                        if !filtered.isEmpty {
-                            if let intValue = Int(filtered), intValue >= 1 && intValue <= 150 {
-                                psalmValue = intValue
-                            } else if let intValue = Int(filtered) {
-                                // Clamp to valid range
-                                if intValue < 1 {
-                                    psalmValue = 1
-                                    psalmStringValue = "1"
-                                } else if intValue > 150 {
-                                    psalmValue = 150
-                                    psalmStringValue = "150"
+                // Custom Stepper Control
+                HStack(spacing: 0) {
+                    // Minus button
+                    Button(action: {
+                    }) {
+                        Image(systemName: "minus.circle")
+                            .foregroundColor(.primary)
+                            .symbolRenderingMode(.hierarchical)
+                            .font(.title)
+                            .fontWeight(.medium)
+                            .imageScale(.large)
+                            .labelStyle(.iconOnly)
+                            .clipShape(Circle())
+                            .glassEffect()
+                    }
+                    .disabled(psalmValue <= 1)
+                    .simultaneousGesture(
+                        DragGesture(minimumDistance: 0)
+                            .onChanged { _ in
+                                if minusTimer == nil && psalmValue > 1 {
+                                    decrementValue()
+                                    startMinusTimer()
                                 }
                             }
+                            .onEnded { _ in
+                                stopMinusTimer()
+                            }
+                    )
+                    
+                    // Editable value display
+                    TextField("", text: $psalmStringValue)
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(.primary)
+                        .frame(width: 50)
+                        .multilineTextAlignment(.center)
+                        .keyboardType(.numberPad)
+                        .focused($isTextFieldFocused)
+                        .onChange(of: psalmStringValue) { oldValue, newValue in
+                            // Filter out non-numeric characters
+                            let filtered = newValue.filter { $0.isNumber }
+                            if filtered != newValue {
+                                psalmStringValue = filtered
+                            }
+                            
+                            // Update the integer value only if not empty
+                            if !filtered.isEmpty {
+                                if let intValue = Int(filtered), intValue >= 1 && intValue <= 150 {
+                                    psalmValue = intValue
+                                } else if let intValue = Int(filtered) {
+                                    // Clamp to valid range
+                                    if intValue < 1 {
+                                        psalmValue = 1
+                                        psalmStringValue = "1"
+                                    } else if intValue > 150 {
+                                        psalmValue = 150
+                                        psalmStringValue = "150"
+                                    }
+                                }
+                            }
+                            // If filtered is empty, leave stringValue empty but don't update value
                         }
-                        // If filtered is empty, leave stringValue empty but don't update value
+                        .onSubmit {
+                            // Handle when user submits (e.g., hits return)
+                            if psalmStringValue.isEmpty {
+                                psalmValue = 1
+                                psalmStringValue = "1"
+                            }
+                            isTextFieldFocused = false
+                        }
+                    
+                    // Plus button
+                    Button(action: {}) {
+                        Image(systemName: "plus.circle")
+                            .foregroundColor(.primary)
+                            .symbolRenderingMode(.hierarchical)
+                            .font(.title)
+                            .fontWeight(.medium)
+                            .imageScale(.large)
+                            .labelStyle(.iconOnly)
+                            .clipShape(Circle())
+                            .glassEffect()
                     }
-                    .onSubmit {
-                        // Handle when user submits (e.g., hits return)
+                    .disabled(psalmValue >= 150)
+                    .simultaneousGesture(
+                        DragGesture(minimumDistance: 0)
+                            .onChanged { _ in
+                                if plusTimer == nil && psalmValue < 150 {
+                                    incrementValue()
+                                    startPlusTimer()
+                                }
+                            }
+                            .onEnded { _ in
+                                stopPlusTimer()
+                            }
+                    )
+                }
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color(.systemGray6))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color(.systemGray4), lineWidth: 1)
+                        )
+                )
+                    
+                
+                // Display the current value without modifying it
+                Text("Current Psalm: \(psalmStringValue)")
+                    .font(.headline)
+                    .foregroundColor(.blue)
+                    .padding(.top, 10)
+                
+                // Dismiss keyboard button
+                if isTextFieldFocused {
+                    Button("Done") {
+                        // If field is empty when dismissing, set to 1
                         if psalmStringValue.isEmpty {
                             psalmValue = 1
                             psalmStringValue = "1"
                         }
                         isTextFieldFocused = false
                     }
-                
-                // Plus button
-                Button(action: {}) {
-                    Image(systemName: "plus.circle")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(.primary)
-                        .frame(width: 32, height: 32)
+                    .padding()
+                    .background(Color.blue)
+                    .foregroundColor(.white)
+                    .cornerRadius(8)
                 }
-                .disabled(psalmValue >= 150)
-                .simultaneousGesture(
-                    DragGesture(minimumDistance: 0)
-                        .onChanged { _ in
-                            if plusTimer == nil && psalmValue < 150 {
-                                incrementValue()
-                                startPlusTimer()
-                            }
-                        }
-                        .onEnded { _ in
-                            stopPlusTimer()
-                        }
-                )
             }
-            .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(Color(.systemGray6))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(Color(.systemGray4), lineWidth: 1)
-                    )
-            )
-            
-            // Display the current value without modifying it
-            Text("Current Psalm: \(psalmStringValue)")
-                .font(.headline)
-                .foregroundColor(.blue)
-                .padding(.top, 10)
-            
-            // Dismiss keyboard button
-            if isTextFieldFocused {
-                Button("Done") {
-                    // If field is empty when dismissing, set to 1
-                    if psalmStringValue.isEmpty {
-                        psalmValue = 1
-                        psalmStringValue = "1"
-                    }
-                    isTextFieldFocused = false
-                }
-                .padding()
-                .background(Color.blue)
-                .foregroundColor(.white)
-                .cornerRadius(8)
-            }
+            .padding()
         }
-        .padding()
     }
     
     private func incrementValue() {
@@ -215,4 +241,5 @@ struct ContentTestView: View {
 
 #Preview {
     ContentTestView()
+        .preferredColorScheme(.dark)
 }

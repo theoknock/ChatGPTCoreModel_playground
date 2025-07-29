@@ -10,9 +10,22 @@
 		B91F2D9E2E26E02A00A9B15A /* ChatGPTCoreModel_playground.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ChatGPTCoreModel_playground.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		B99B23BE2E384AC200360991 /* Exceptions for "ChatGPTCoreModel_playground" folder in "ChatGPTCoreModel_playground" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				PsalmRetriever.swift,
+			);
+			target = B91F2D9D2E26E02A00A9B15A /* ChatGPTCoreModel_playground */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		B91F2DA02E26E02A00A9B15A /* ChatGPTCoreModel_playground */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				B99B23BE2E384AC200360991 /* Exceptions for "ChatGPTCoreModel_playground" folder in "ChatGPTCoreModel_playground" target */,
+			);
 			path = ChatGPTCoreModel_playground;
 			sourceTree = "<group>";
 		};
