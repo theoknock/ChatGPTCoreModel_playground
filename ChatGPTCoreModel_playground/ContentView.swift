@@ -384,7 +384,8 @@ struct ContentView: View {
 """)
 
             let session: LanguageModelSession = LanguageModelSession(instructions: instructions)
-
+            let generationOptions = GenerationOptions(sampling: GenerationOptions.SamplingMode.greedy, temperature: 0.5, maximumResponseTokens: 16777216)
+        
             let prompt: Prompt = Prompt("Write an abstract for Psalm \(abstract.psalmNumber) per your instructions. QUOTE OR CITE THE ENTIRE PSALM FIRST!!!")
 //            let response = try await session.respond(to: prompt, generating: AbstractPsalmResponse.self)
             
@@ -393,8 +394,39 @@ struct ContentView: View {
 //            for try await partial in stream {
 //                print(partial)
 //            }
+            
+//        
+//            let menuSchema = DynamicGenerationSchema(
+//                name: "Menu",
+//                properties: [
+//                    DynamicGenerationSchema.Property(
+//                        name: "content",
+//                        schema: DynamicGenerationSchema(
+//                            name: "contentSchema",
+//                            anyOf: ["Psalm"]
+//                        )
+//                    )
+//
+//
+//                    // Add additional properties.
+//                ]
+//            )
+//            
+//            let schema = try GenerationSchema(root: menuSchema, dependencies: [])
+//
+//
+//            // Pass the schema to the model to guide the output.
+//            let response = try await session.respond(
+//                to: "The prompt you want to make.",
+//                schema: schema
+//            )
+
+
+            
 //            let response = try await session.respond(to: prompt)
-            await queue.updateResponse(for: abstract.id, response: (try await session.respond(to: prompt)).content) //.transcriptEntries.description)
+            let options = GenerationOptions(sampling: .greedy, temperature: 0.5,maximumResponseTokens: 16436) //temperature: 0.5)
+
+        await queue.updateResponse(for: abstract.id, response: (try await session.respond(to: prompt, options: options)).content) //.transcriptEntries.description)
         } catch {
             await queue.updateResponse(for: abstract.id, response: "Error: \(error.localizedDescription)")
         }
