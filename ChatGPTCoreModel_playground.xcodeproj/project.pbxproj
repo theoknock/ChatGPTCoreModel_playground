@@ -6,8 +6,15 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		B98B16FE2E38C76C00C32811 /* DeadCode.md in Resources */ = {isa = PBXBuildFile; fileRef = B98B16FD2E38C76C00C32811 /* DeadCode.md */; };
+		B98B17002E38C76D00C32811 /* File.swift in Sources */ = {isa = PBXBuildFile; fileRef = B98B16FF2E38C76D00C32811 /* File.swift */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		B91F2D9E2E26E02A00A9B15A /* ChatGPTCoreModel_playground.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ChatGPTCoreModel_playground.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B98B16FD2E38C76C00C32811 /* DeadCode.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = DeadCode.md; sourceTree = "<group>"; };
+		B98B16FF2E38C76D00C32811 /* File.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = File.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -32,6 +39,8 @@
 		B91F2D952E26E02A00A9B15A = {
 			isa = PBXGroup;
 			children = (
+				B98B16FD2E38C76C00C32811 /* DeadCode.md */,
+				B98B16FF2E38C76D00C32811 /* File.swift */,
 				B91F2DA02E26E02A00A9B15A /* ChatGPTCoreModel_playground */,
 				B91F2D9F2E26E02A00A9B15A /* Products */,
 			);
@@ -109,6 +118,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B98B16FE2E38C76C00C32811 /* DeadCode.md in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -119,6 +129,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B98B17002E38C76D00C32811 /* File.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
