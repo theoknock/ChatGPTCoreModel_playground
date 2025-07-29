@@ -82,13 +82,14 @@ struct ContentView: View {
     var body: some View {
         ZStack {
             VStack(alignment: .leading, content: {
-                Text("PSALM")
-                    .font(.body)
-                    .fontWeight(Font.Weight.bold)
-                    .padding(.horizontal)
+                HStack {
+                    Text("PSALM ABSTRACT GENERATOR")
+                        .font(.body)
+                        .fontWeight(Font.Weight.bold)
+                        .padding([.top, .horizontal])
+                }
                 
                 ZStack(alignment: (.trailing), content: {
-                    
                     HStack {
                         HStack {
                             Group {
@@ -193,24 +194,24 @@ struct ContentView: View {
                     .padding()
                     .glassEffect(in: .rect(cornerRadius: 25.0))
                 })
-//                .ignoresSafeArea(.all, edges: [.horizontal, .top])
+                .ignoresSafeArea()
                 
                 
                 GeometryReader { GeometryProxy in
                     ScrollView {
                         VStack(alignment: .leading, spacing: 16) {
                             ForEach(abstracts) { item in
+                                let jsonResponse = removeJSONTags(item.response)
                                 VStack(alignment: .leading, spacing: 8) {
-                                    let response = removeJSONTags(item.response)
                                     Text("Psalm \(item.psalmNumber)")
                                         .font(.title2)
                                         .fontWeight(.medium)
-                                        .padding()
                                         .frame(idealWidth: GeometryProxy.size.width, maxWidth: GeometryProxy.size.width)
+                                        .padding()
                                         .glassEffect(in: .rect(cornerRadius: 25.0))
                                     
                                     if item.isCompleted {
-                                        Text(removeJSONTags(item.response))
+                                        Text(jsonResponse)
                                             .focusEffectDisabled(false)
                                             .textSelection(.enabled)
                                             .focusable(true)
@@ -220,8 +221,8 @@ struct ContentView: View {
                                             .frame(idealWidth: GeometryProxy.size.width, maxWidth: GeometryProxy.size.width)
                                     } else {
                                         // Show streaming text even when not completed
-                                        if !removeJSONTags(item.response).isEmpty && removeJSONTags(item.response) != "Pending..." {
-                                            Text(removeJSONTags(item.response))
+                                        if !jsonResponse.isEmpty && jsonResponse != "Pending..." {
+                                            Text(jsonResponse)
                                                 .focusEffectDisabled(false)
                                                 .dynamicTypeSize(DynamicTypeSize.xSmall)
                                                 .font(.body)
@@ -240,7 +241,7 @@ struct ContentView: View {
                             }
                         }
                         
-                        Spacer()
+//                        Spacer()
                     }
                 }
             })
@@ -250,12 +251,12 @@ struct ContentView: View {
                     await refreshQueue()
                 }
             }
+            .padding(.bottom, 75.0)
             
             VStack {
                 Spacer()
                 
                 HStack(alignment: .bottom, content: {
-                    Spacer()
                     
                     Text("James Alan Bush")
                         .font(.caption)
@@ -263,13 +264,17 @@ struct ContentView: View {
                     
                     Spacer()
                     
-                    Text("Commit ID 29551e6")
+                    Text("Commit ID 7fe5119")
                         .font(.caption2)
                         .foregroundColor(.secondary)
                     
-                    Spacer()
+                    
                 })
+                .padding()
+                .frame(idealWidth: .infinity, maxWidth: .infinity)
+                .glassEffect(in: .rect(cornerRadius: 25.0))
             }
+            .padding(.horizontal)
         }
         .background {
             LinearGradient(
@@ -280,7 +285,7 @@ struct ContentView: View {
                 startPoint: .bottomTrailing,
                 endPoint: .topLeading
             )
-            .ignoresSafeArea(.container, edges: [.horizontal, .top])
+            .ignoresSafeArea()
             
             
         }
@@ -624,7 +629,7 @@ struct ContentView: View {
         
         // Remove JSON keys/tags and replace with newline
         // This pattern matches "tagname": including the quotes and colon
-        result = result.replacingOccurrences(of: "\"[^\"]*\"\\s*:", with: "\n", options: .regularExpression)
+        result = result.replacingOccurrences(of: "\"[^\"]*\"\\s*:", with: "\n\n", options: .regularExpression)
         
         // Remove the JSON structure characters (but keep the content)
         result = result.replacingOccurrences(of: "[{}\\[\\],]", with: "", options: .regularExpression)
@@ -731,7 +736,7 @@ struct ContentView: View {
             
             let allText: String
             do {
-                allText = try String(contentsOfFile: path)
+                allText = try String(contentsOfFile: path, encoding: .utf8)
             } catch {
                 await queue.updateResponse(for: abstract.id, response: "Error: Could not read Psalms.txt file - \(error.localizedDescription)", isCompleted: true)
                 await refreshQueue()
