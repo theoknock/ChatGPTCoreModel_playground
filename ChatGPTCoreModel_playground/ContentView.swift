@@ -215,10 +215,57 @@ class PsalmProcessingManager: ObservableObject {
     }
 }
 
+struct SlidingText: View {
+    let value: Int
+    @State private var previousValue: Int = 0
+    @State private var xOffset: CGFloat = 0
+    @State private var measuredWidth: CGFloat = 0
+        
+
+    var body: some View {
+        Text("\(value)")
+            .fixedSize()                    // no stretching
+            .lineLimit(1)
+            .background(                     // measure here
+                GeometryReader { proxy in
+                    Color.clear
+                        .onAppear {
+                            measuredWidth = proxy.size.width
+                        }
+                        .onChange(of: proxy.size) { newSize in
+                            measuredWidth = newSize.width
+                        }
+                }
+            )
+        
+        
+//            .offset(x: xOffset)
+            .onAppear {
+                previousValue = value
+            }
+            .onChange(of: value) { new in
+                // determine slide direction
+                let direction: CGFloat = (new > previousValue) ? 1 : -1
+                // start from off-screen (or just farther away)
+                xOffset = direction * 1/150
+                // spring back to zero with a nice bounce
+                withAnimation(.spring(response: 0.5, dampingFraction: 0.7, blendDuration: 1.0)) {
+                    xOffset = 0
+                }
+                previousValue = new
+            }
+    }
+}
+
+
 // MARK: - Main View
 struct ContentView: View {
     @State private var psalmNumber: Int = Int.random(in: 1 ... 150)
     @State private var psalmNumberInput: String = String()
+    @FocusState private var isInputFocused: Bool
+    @State private var measuredWidth: CGFloat = 0
+    
+    
     @StateObject private var processingManager = PsalmProcessingManager()
     
     // For batch processing
@@ -315,16 +362,54 @@ struct ContentView: View {
 //                                            psalmNumber = min(max(value, 1), 150)
 //                                        }
 //                                        psalmNumberInput = "\(psalmNumber)"
-//                                    }
-//                                    .foregroundColor(Color(UIColor.white))
-//                                    .background(Color(UIColor.clear))
+                                //                                    }
+                                //                                    .foregroundColor(Color(UIColor.white))
+                                //                                    .background(Color(UIColor.clear))
                                 
                                 // Number input field with slide-to-change
-                                TextField("Psalm \(psalmNumber)", text: quotedPsalmNumberInput)
-                                    .keyboardType(.numberPad)
+                                SlidingText(value: psalmNumber - 2)
+                                    .dynamicTypeSize(.small)
+                                    .multilineTextAlignment(.center)
+                                    .textFieldStyle(DefaultTextFieldStyle())
+                                    .font(.title3)
+                                    .fontWeight(.semibold)
+                                    .shadow(color: Color.black.opacity(0.5), radius: 2, x: 0, y: 0)
+                                
+                                SlidingText(value: psalmNumber - 1)
+                                    .dynamicTypeSize(.small)
                                     .multilineTextAlignment(.center)
                                     .textFieldStyle(DefaultTextFieldStyle())
                                     .font(.title)
+                                    .fontWeight(.semibold)
+                                    .shadow(color: Color.black.opacity(0.5), radius: 2, x: 0, y: 0)
+                                
+                                TextField("Psalm \(psalmNumber)", text: quotedPsalmNumberInput)
+                                    .fixedSize()                    // no stretching
+                                    .lineLimit(1)
+                                    .background(                     // measure here
+                                        GeometryReader { proxy in
+                                            Color.clear
+                                                .onAppear {
+                                                    measuredWidth = proxy.size.width
+                                                }
+                                                .onChange(of: proxy.size) { newSize in
+                                                    measuredWidth = newSize.width
+                                                }
+                                        }
+                                    )
+                                
+                                    .keyboardType(.numberPad)
+                                    .focused($isInputFocused)               // 2: attach focus
+                                    .onChange(of: isInputFocused, { oldValue, newValue in
+                                        if (!isInputFocused) {
+                                            dismissKeyboard()
+                                            isInputFocused = false
+                                        }
+                                    })
+                                    .dynamicTypeSize(.small)
+                                    .multilineTextAlignment(.center)
+                                    .textFieldStyle(DefaultTextFieldStyle())
+                                    .font(.largeTitle)
                                     .fontWeight(.semibold)
                                     .shadow(color: Color.black.opacity(0.5), radius: 2, x: 0, y: 0)
                                     .onChange(of: psalmNumberInput) { _, newValue in
@@ -337,15 +422,32 @@ struct ContentView: View {
                                     .foregroundColor(Color(UIColor.white))
                                     .background(Color.clear)
                                     .gesture(
-                                        DragGesture(minimumDistance: 10, coordinateSpace: .local)
+                                        DragGesture(minimumDistance: 1/150, coordinateSpace: .local)
                                             .onChanged { value in
-                                                if value.translation.width > 0 {
+                                                if value.translation.width > 1/150 {
                                                     incrementPsalm()    // slide right → increment
-                                                } else if value.translation.width < 0 {
+                                                } else if value.translation.width < 1/150 {
                                                     decrementPsalm()    // slide left → decrement
                                                 }
                                             }
                                     )
+                                
+                                SlidingText(value: psalmNumber + 1)
+                                    .dynamicTypeSize(.small)
+                                    .multilineTextAlignment(.center)
+                                    .textFieldStyle(DefaultTextFieldStyle())
+                                    .font(.title)
+                                    .fontWeight(.semibold)
+                                    .shadow(color: Color.black.opacity(0.3125), radius: 2, x: 0, y: 0)
+                                                            
+                                SlidingText(value: psalmNumber + 2)
+                                    .dynamicTypeSize(.small)
+                                    .multilineTextAlignment(.center)
+                                    .textFieldStyle(DefaultTextFieldStyle())
+                                    .font(.title3)
+                                    .fontWeight(.semibold)
+                                    .shadow(color: Color.black.opacity(0.5), radius: 2, x: 0, y: 0)
+                                
                                 
                                 Button(action: {
                                     incrementPsalm()
@@ -502,6 +604,9 @@ struct ContentView: View {
                 endPoint: .topLeading
             )
             .ignoresSafeArea()
+            .onTapGesture {
+                isInputFocused = false
+            }
         }
     }
     
