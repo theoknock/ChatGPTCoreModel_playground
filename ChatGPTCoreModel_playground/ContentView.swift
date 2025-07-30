@@ -114,7 +114,13 @@ class PsalmProcessingManager: ObservableObject {
             let instructions = createInstructions(for: abstract.psalmNumber, psalm: psalm)
             let prompt = Prompt("Write an abstract for Psalm \(abstract.psalmNumber) per your instructions.")
             let model = SystemLanguageModel.default
-            let session = LanguageModelSession(instructions: instructions)
+            let session = LanguageModelSession(
+                model: model,
+                guardrails: .default,
+                tools: [],
+                instructions: instructions
+            )
+//            let session = LanguageModelSession(instructions: instructions)
             
             // Stream response with Swift 6 safe concurrency
             let stream = session.streamResponse(to: prompt, options: GenerationOptions(sampling: .greedy, temperature: 1.8, maximumResponseTokens: 8192))
@@ -125,11 +131,7 @@ class PsalmProcessingManager: ObservableObject {
             for try await partial in stream {
                 await responseManager.updateResponse(partial)
                 let currentResponse = await responseManager.currentResponse
-                
-                // Throttled UI update
-//                if !shouldThrottleUpdate() {
-                    updateAbstract(id: abstract.id, response: currentResponse, isCompleted: false)
-//                }
+                updateAbstract(id: abstract.id, response: currentResponse, isCompleted: false)
             }
             
             // Final update
@@ -299,7 +301,25 @@ struct ContentView: View {
                                 .buttonStyle(PlainButtonStyle())
                                 .shadow(color: Color.white.opacity(0.5), radius: 2, x: 0, y: 0)
                                 
-                                // Number input field
+//                                // Number input field
+//                                TextField("Psalm \(psalmNumber)", text: quotedPsalmNumberInput)
+//                                    .keyboardType(.numberPad)
+//                                    .multilineTextAlignment(.center)
+//                                    .textFieldStyle(DefaultTextFieldStyle())
+//                                    .font(.title)
+//                                    .fontWeight(.semibold)
+//                                    .shadow(color: Color.black.opacity(0.5), radius: 2, x: 0, y: 0)
+//                                    .onChange(of: psalmNumberInput) { oldValue, newValue in
+//                                        let filtered = newValue.filter { "0123456789".contains($0) }
+//                                        if let value = Int(filtered) {
+//                                            psalmNumber = min(max(value, 1), 150)
+//                                        }
+//                                        psalmNumberInput = "\(psalmNumber)"
+//                                    }
+//                                    .foregroundColor(Color(UIColor.white))
+//                                    .background(Color(UIColor.clear))
+                                
+                                // Number input field with slide-to-change
                                 TextField("Psalm \(psalmNumber)", text: quotedPsalmNumberInput)
                                     .keyboardType(.numberPad)
                                     .multilineTextAlignment(.center)
@@ -307,7 +327,7 @@ struct ContentView: View {
                                     .font(.title)
                                     .fontWeight(.semibold)
                                     .shadow(color: Color.black.opacity(0.5), radius: 2, x: 0, y: 0)
-                                    .onChange(of: psalmNumberInput) { oldValue, newValue in
+                                    .onChange(of: psalmNumberInput) { _, newValue in
                                         let filtered = newValue.filter { "0123456789".contains($0) }
                                         if let value = Int(filtered) {
                                             psalmNumber = min(max(value, 1), 150)
@@ -315,7 +335,17 @@ struct ContentView: View {
                                         psalmNumberInput = "\(psalmNumber)"
                                     }
                                     .foregroundColor(Color(UIColor.white))
-                                    .background(Color(UIColor.clear))
+                                    .background(Color.clear)
+                                    .gesture(
+                                        DragGesture(minimumDistance: 10, coordinateSpace: .local)
+                                            .onChanged { value in
+                                                if value.translation.width > 0 {
+                                                    incrementPsalm()    // slide right → increment
+                                                } else if value.translation.width < 0 {
+                                                    decrementPsalm()    // slide left → decrement
+                                                }
+                                            }
+                                    )
                                 
                                 Button(action: {
                                     incrementPsalm()
@@ -371,7 +401,7 @@ struct ContentView: View {
                 .ignoresSafeArea()
                 
                 
-                GeometryReader { GeometryProxy in
+                GeometryReader { geometryProxy in
                     ScrollView {
                         VStack(alignment: .leading, spacing: 16) {
                             ForEach(processingManager.abstracts) { item in
@@ -380,41 +410,44 @@ struct ContentView: View {
                                     Text("Psalm \(item.psalmNumber)")
                                         .font(.title2)
                                         .fontWeight(.medium)
-                                        .frame(idealWidth: GeometryProxy.size.width, maxWidth: GeometryProxy.size.width)
+                                        .frame(idealWidth: geometryProxy.size.width, maxWidth: geometryProxy.size.width)
                                         .padding()
                                         .glassEffect(in: .rect(cornerRadius: 25.0))
                                     
                                     if item.isCompleted {
                                         Text(jsonResponse)
                                             .focusEffectDisabled(false)
-                                            .textSelection(.enabled)
                                             .focusable(true)
-                                            .dynamicTypeSize(DynamicTypeSize.xSmall)
+                                            .textSelection(.enabled)
+                                            .dynamicTypeSize(DynamicTypeSize.medium)
                                             .font(.body)
                                             .padding()
-                                            .frame(idealWidth: GeometryProxy.size.width, maxWidth: GeometryProxy.size.width)
+                                            .frame(idealWidth: geometryProxy.size.width, maxWidth: geometryProxy.size.width)
                                     } else {
                                         // Show streaming text even when not completed
                                         if !jsonResponse.isEmpty && jsonResponse != "Pending..." {
                                             Text(jsonResponse)
                                                 .focusEffectDisabled(false)
-                                                .dynamicTypeSize(DynamicTypeSize.xSmall)
+                                                .focusable(true)
+                                                .textSelection(.enabled)
+                                                .dynamicTypeSize(DynamicTypeSize.medium)
                                                 .font(.body)
                                                 .padding()
-                                                .frame(idealWidth: GeometryProxy.size.width, maxWidth: GeometryProxy.size.width)
+                                                .frame(idealWidth: geometryProxy.size.width, maxWidth: geometryProxy.size.width)
                                         } else {
                                             ProgressView()
                                                 .progressViewStyle(CircularProgressViewStyle())
-                                                .frame(idealWidth: GeometryProxy.size.width, maxWidth: GeometryProxy.size.width)
+                                                .frame(idealWidth: geometryProxy.size.width, maxWidth: geometryProxy.size.width)
                                         }
                                     }
                                 }
                                 .padding()
-                                .frame(idealWidth: GeometryProxy.size.width, maxWidth: GeometryProxy.size.width)
+                                .frame(idealWidth: geometryProxy.size.width, maxWidth: geometryProxy.size.width)
                                 .glassEffect(in: .rect(cornerRadius: 25.0))
                             }
                         }
                     }
+                    
                 }
             })
             .onAppear {
@@ -441,12 +474,14 @@ struct ContentView: View {
                     
                     Text("James Alan Bush")
                         .font(.caption)
+                        .fontWeight(.medium)
                         .foregroundColor(.primary)
                     
                     Spacer()
                     
                     Text("Commit ID 7fe5119")
-                        .font(.caption2)
+                        .font(.caption)
+                        .fontWeight(.light)
                         .foregroundColor(.secondary)
                     
                     
@@ -460,7 +495,7 @@ struct ContentView: View {
         .background {
             LinearGradient(
                 gradient: Gradient(colors: [
-                    Color.primary.opacity(0.25),
+                    Color.primary.opacity(0.75),
                     Color.accentColor.opacity(0.25)
                 ]),
                 startPoint: .bottomTrailing,
