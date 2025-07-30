@@ -7,272 +7,55 @@
 
 import SwiftUI
 import FoundationModels
-import Combine
-import Observation
 
 // MARK: - Model for a single queued Psalm abstract
-struct PsalmAbstract: Identifiable, Sendable {
+struct PsalmAbstract: Identifiable {
     let id = UUID()
     let psalmNumber: Int
     var response: String = "Pending..."
     var isCompleted: Bool = false
 }
 
-// MARK: - Response Manager for Swift 6 Concurrency
-actor ResponseManager {
-    private var response: String = ""
+// MARK: - Actor for safe queueing
+actor PsalmQueue {
+    private(set) var items: [PsalmAbstract] = []
     
-    func updateResponse(_ newResponse: String) {
-        response = newResponse
-    }
-    
-    var currentResponse: String {
-        response
-    }
-}
-
-// MARK: - Psalm Processing Manager using only standard Swift features
-@MainActor
-class PsalmProcessingManager: ObservableObject {
-    @Published var abstracts: [PsalmAbstract] = []
-    private var psalmCache: String?
-    
-    // Use standard Swift Dictionary for task management instead of custom queue
-    private var activeTasks: [UUID: Task<Void, Never>] = [:]
-    
-    // Throttling for UI updates
-    private var lastUpdateTime = Date()
-    private let updateInterval: TimeInterval = 0.1
-    
-    // Cancel all active tasks
-    func cancelAllTasks() {
-        activeTasks.values.forEach { $0.cancel() }
-        activeTasks.removeAll()
-    }
-    
-    deinit {
-        activeTasks.values.forEach { $0.cancel() }
-        activeTasks.removeAll()
-    }
-    
-    // Batch processing support
-    func addMultiplePsalms(_ psalmNumbers: [Int]) async {
-        // Add all psalms first
-        let newAbstracts = psalmNumbers.map { PsalmAbstract(psalmNumber: $0) }
-        abstracts.append(contentsOf: newAbstracts)
-        
-        // Process all psalms concurrently using TaskGroup
-        await withTaskGroup(of: Void.self) { group in
-            for abstract in newAbstracts {
-                group.addTask { [weak self] in
-                    await self?.runPsalmAbstract(abstract)
-                }
-            }
-        }
-    }
-    
-    func addSinglePsalm(_ psalmNumber: Int) async {
+    func addPsalm(_ psalmNumber: Int) -> PsalmAbstract {
         let abstract = PsalmAbstract(psalmNumber: psalmNumber)
-        abstracts.append(abstract)
-        
-        // Create and register task
-        let task = Task<Void, Never> { [weak self] in
-            
-            await self?.runPsalmAbstract(abstract)
-        }
-        activeTasks[abstract.id] = task
+        items.append(abstract)
+        return abstract
     }
     
-    private func updateAbstract(id: UUID, response: String, isCompleted: Bool) {
-        if let index = abstracts.firstIndex(where: { $0.id == id }) {
-            abstracts[index].response = response
-            abstracts[index].isCompleted = isCompleted
-        }
-    }
-    
-    private func shouldThrottleUpdate() -> Bool {
-        let now = Date()
-        let timeSinceLastUpdate = now.timeIntervalSince(lastUpdateTime)
-        if timeSinceLastUpdate >= updateInterval {
-            lastUpdateTime = now
-            return false
-        }
-        return true
-    }
-    
-    private func runPsalmAbstract(_ abstract: PsalmAbstract) async {
-        do {
-            // Load psalm text (with caching)
-            let allText = try await loadPsalmText()
-            
-            guard let psalm = psalmText(from: allText, number: abstract.psalmNumber) else {
-                updateAbstract(id: abstract.id, response: "Error: Could not find Psalm \(abstract.psalmNumber) in the text file", isCompleted: true)
-                return
+    func updateResponse(for id: UUID, response: String, isCompleted: Bool = false) {
+        if let index = items.firstIndex(where: { $0.id == id }) {
+            items[index].response = response
+            if isCompleted {
+                items[index].isCompleted = true
             }
-            
-            // Create instructions
-            let instructions = createInstructions(for: abstract.psalmNumber, psalm: psalm)
-            let prompt = Prompt("Write an abstract for Psalm \(abstract.psalmNumber) per your instructions.")
-            let model = SystemLanguageModel.default
-            let session = LanguageModelSession(
-                model: model,
-                guardrails: .default,
-                tools: [],
-                instructions: instructions
-            )
-//            let session = LanguageModelSession(instructions: instructions)
-            
-            // Stream response with Swift 6 safe concurrency
-            let stream = session.streamResponse(to: prompt, options: GenerationOptions(sampling: .greedy, temperature: 1.8, maximumResponseTokens: 8192))
-            
-            // Use an actor to manage the response state safely
-            let responseManager = ResponseManager()
+        }
+    }
 
-            for try await partial in stream {
-                await responseManager.updateResponse(partial)
-                let currentResponse = await responseManager.currentResponse
-                updateAbstract(id: abstract.id, response: currentResponse, isCompleted: false)
-            }
-            
-            // Final update
-            let finalResponse = await responseManager.currentResponse
-            if finalResponse.isEmpty {
-                updateAbstract(id: abstract.id, response: "Error: Received empty response from language model", isCompleted: true)
-            } else {
-                updateAbstract(id: abstract.id, response: finalResponse, isCompleted: true)
-                print("✅ Psalm \(abstract.psalmNumber) abstract completed successfully")
-            }
-            
-        } catch {
-            updateAbstract(id: abstract.id, response: "Error: \(error.localizedDescription)", isCompleted: true)
-            print("❌ Error generating Psalm \(abstract.psalmNumber): \(error.localizedDescription)")
+    func markCompleted(for id: UUID) {
+        if let index = items.firstIndex(where: { $0.id == id }) {
+            items[index].isCompleted = true
         }
-        
-        // Clean up task reference
-        activeTasks.removeValue(forKey: abstract.id)
+    }
+
+    func completeResponse(for id: UUID) {
+        if let index = items.firstIndex(where: { $0.id == id }) {
+            items[index].isCompleted = true
+        }
     }
     
-    private func loadPsalmText() async throws -> String {
-        // Cache the psalm text to avoid repeated file reads
-        if let cached = psalmCache {
-            return cached
-        }
-        
-        guard let path = Bundle.main.path(forResource: "Psalms", ofType: "txt") else {
-            throw NSError(domain: "PsalmLoader", code: 1, userInfo: [NSLocalizedDescriptionKey: "Could not find Psalms.txt file in bundle"])
-        }
-        
-        let text = try String(contentsOfFile: path, encoding: .utf8)
-        psalmCache = text
-        return text
-    }
-    
-    private func createInstructions(for psalmNumber: Int, psalm: String) -> Instructions {
-        Instructions("""
-            Your instructions:
-            When prompted with a specific psalm (e.g., "Psalm 23" or "23"), you will write a six-paragraph abstract of psalm \(psalmNumber) by following the description for each paragraph.
-            
-            RESPOND IN PLAIN TEXT ONLY - DO NOT USE JSON, XML, OR ANY OTHER STRUCTURED FORMAT.
-            
-            Do not number the paragraphs or precede each paragraph with a topic summation; support every statement you write about the psalm with a reference to the verse(s), providing at least one quote for each paragraph.
-            
-            IMPORTANT: Cite your source for every sentence you write in every paragraph (include verse(s) or excerpt(s)).
-            ALSO IMPORTANT: Cite the entire psalm before generating the abstract.
-            
-            1. The abstract should begin with a key highlight that best represents the central message or emphasis of the Psalm, reflecting its specific content and significance. Include at least one quote or citation from the psalm.
-            2. Clearly describe the purpose of the Psalm, explaining its spiritual intent and how it serves or helps the believer. Avoid mentioning the writer unless referring to the Psalm's direct impact on worship or spiritual life.
-            3. Identify and summarize the key themes found in the psalm, supported by references from the text itself.
-            4. Provide a theological summary that explains how the psalm's message contributes to an understanding of God, faith, and spiritual matters.
-            5. Write a Christological summary that identifies any direct or indirect connections to Christ, the gospel, or messianic prophecies.
-            6. Draw direct parallels to Christian teachings, using New Testament scriptures to illustrate how the message of the psalm is fulfilled or mirrored in Christ and His teachings, and give advice on how Christians today can apply the psalm's lessons in their own lives.
-            
-            Write your response as continuous prose with clear paragraph breaks, not as structured data or JSON.
-            
-            Cite the full text of Psalm \(psalmNumber) before beginning your abstract:
-            \(psalm)
-            """)
-    }
-    
-    private func psalmText(from fullText: String, number: Int) -> String? {
-        guard (1...150).contains(number) else { return nil }
-        let startMarker = "<<PSALM \(number)>>"
-        guard let startRange = fullText.range(of: startMarker) else {
-            return nil
-        }
-        let afterStart = startRange.upperBound..<fullText.endIndex
-        let endMarker: String? = number < 150 ? "<<PSALM \(number + 1)>>" : nil
-        
-        let endIndex: String.Index
-        if let next = endMarker,
-           let nextRange = fullText.range(of: next, options: .literal, range: afterStart) {
-            endIndex = nextRange.lowerBound
-        } else {
-            endIndex = fullText.endIndex
-        }
-        
-        let snippet = fullText[startRange.lowerBound..<endIndex]
-        return snippet.trimmingCharacters(in: .whitespacesAndNewlines)
+    var currentItems: [PsalmAbstract] {
+        items
     }
 }
-
-struct SlidingText: View {
-    let value: Int
-    @State private var previousValue: Int = 0
-    @State private var xOffset: CGFloat = 0
-    @State private var measuredWidth: CGFloat = 0
-        
-
-    var body: some View {
-        Text("\(value)")
-            .fixedSize()                    // no stretching
-            .lineLimit(1)
-            .background(                     // measure here
-                GeometryReader { proxy in
-                    Color.clear
-                        .onAppear {
-                            measuredWidth = proxy.size.width
-                        }
-                        .onChange(of: proxy.size) { newSize in
-                            measuredWidth = newSize.width
-                        }
-                }
-            )
-        
-        
-//            .offset(x: xOffset)
-            .onAppear {
-                previousValue = value
-            }
-            .onChange(of: value) { new in
-                // determine slide direction
-                let direction: CGFloat = (new > previousValue) ? 1 : -1
-                // start from off-screen (or just farther away)
-                xOffset = direction * 1/150
-                // spring back to zero with a nice bounce
-                withAnimation(.spring(response: 0.5, dampingFraction: 0.7, blendDuration: 1.0)) {
-                    xOffset = 0
-                }
-                previousValue = new
-            }
-    }
-}
-
 
 // MARK: - Main View
 struct ContentView: View {
     @State private var psalmNumber: Int = Int.random(in: 1 ... 150)
     @State private var psalmNumberInput: String = String()
-    @FocusState private var isInputFocused: Bool
-    @State private var measuredWidth: CGFloat = 0
-    
-    
-    @StateObject private var processingManager = PsalmProcessingManager()
-    
-    // For batch processing
-    @State private var showingBatchSheet = false
-    @State private var batchStartNumber = 1
-    @State private var batchEndNumber = 5
-    
     var quotedPsalmNumberInput: Binding<String> {
         Binding<String>(
             get: {
@@ -287,6 +70,9 @@ struct ContentView: View {
             }
         )
     }
+    @State private var abstracts: [PsalmAbstract] = []
+    
+    private let queue = PsalmQueue()
     
     // Timer properties for stepper acceleration
     @State private var timer: Timer?
@@ -301,21 +87,6 @@ struct ContentView: View {
                         .font(.body)
                         .fontWeight(Font.Weight.bold)
                         .padding([.top, .horizontal])
-                    
-                    Spacer()
-                    
-                    // Batch processing button
-                    Button(action: {
-                        showingBatchSheet = true
-                    }) {
-                        Image(systemName: "square.stack.3d.up")
-                            .foregroundColor(Color(UIColor.white))
-                            .symbolRenderingMode(.hierarchical)
-                            .font(.title3)
-                            .fontWeight(.medium)
-                            .imageScale(.medium)
-                    }
-                    .padding(.trailing)
                 }
                 
                 ZStack(alignment: (.trailing), content: {
@@ -348,71 +119,15 @@ struct ContentView: View {
                                 .buttonStyle(PlainButtonStyle())
                                 .shadow(color: Color.white.opacity(0.5), radius: 2, x: 0, y: 0)
                                 
-//                                // Number input field
-//                                TextField("Psalm \(psalmNumber)", text: quotedPsalmNumberInput)
-//                                    .keyboardType(.numberPad)
-//                                    .multilineTextAlignment(.center)
-//                                    .textFieldStyle(DefaultTextFieldStyle())
-//                                    .font(.title)
-//                                    .fontWeight(.semibold)
-//                                    .shadow(color: Color.black.opacity(0.5), radius: 2, x: 0, y: 0)
-//                                    .onChange(of: psalmNumberInput) { oldValue, newValue in
-//                                        let filtered = newValue.filter { "0123456789".contains($0) }
-//                                        if let value = Int(filtered) {
-//                                            psalmNumber = min(max(value, 1), 150)
-//                                        }
-//                                        psalmNumberInput = "\(psalmNumber)"
-                                //                                    }
-                                //                                    .foregroundColor(Color(UIColor.white))
-                                //                                    .background(Color(UIColor.clear))
-                                
-                                // Number input field with slide-to-change
-                                SlidingText(value: psalmNumber - 2)
-                                    .dynamicTypeSize(.small)
-                                    .multilineTextAlignment(.center)
-                                    .textFieldStyle(DefaultTextFieldStyle())
-                                    .font(.title3)
-                                    .fontWeight(.semibold)
-                                    .shadow(color: Color.black.opacity(0.5), radius: 2, x: 0, y: 0)
-                                
-                                SlidingText(value: psalmNumber - 1)
-                                    .dynamicTypeSize(.small)
+                                // Number input field
+                                TextField("Psalm \(psalmNumber)", text: quotedPsalmNumberInput)
+                                    .keyboardType(.numberPad)
                                     .multilineTextAlignment(.center)
                                     .textFieldStyle(DefaultTextFieldStyle())
                                     .font(.title)
                                     .fontWeight(.semibold)
                                     .shadow(color: Color.black.opacity(0.5), radius: 2, x: 0, y: 0)
-                                
-                                TextField("Psalm \(psalmNumber)", text: quotedPsalmNumberInput)
-                                    .fixedSize()                    // no stretching
-                                    .lineLimit(1)
-                                    .background(                     // measure here
-                                        GeometryReader { proxy in
-                                            Color.clear
-                                                .onAppear {
-                                                    measuredWidth = proxy.size.width
-                                                }
-                                                .onChange(of: proxy.size) { newSize in
-                                                    measuredWidth = newSize.width
-                                                }
-                                        }
-                                    )
-                                
-                                    .keyboardType(.numberPad)
-                                    .focused($isInputFocused)               // 2: attach focus
-                                    .onChange(of: isInputFocused, { oldValue, newValue in
-                                        if (!isInputFocused) {
-                                            dismissKeyboard()
-                                            isInputFocused = false
-                                        }
-                                    })
-                                    .dynamicTypeSize(.small)
-                                    .multilineTextAlignment(.center)
-                                    .textFieldStyle(DefaultTextFieldStyle())
-                                    .font(.largeTitle)
-                                    .fontWeight(.semibold)
-                                    .shadow(color: Color.black.opacity(0.5), radius: 2, x: 0, y: 0)
-                                    .onChange(of: psalmNumberInput) { _, newValue in
+                                    .onChange(of: psalmNumberInput) { oldValue, newValue in
                                         let filtered = newValue.filter { "0123456789".contains($0) }
                                         if let value = Int(filtered) {
                                             psalmNumber = min(max(value, 1), 150)
@@ -420,34 +135,7 @@ struct ContentView: View {
                                         psalmNumberInput = "\(psalmNumber)"
                                     }
                                     .foregroundColor(Color(UIColor.white))
-                                    .background(Color.clear)
-                                    .gesture(
-                                        DragGesture(minimumDistance: 1/150, coordinateSpace: .local)
-                                            .onChanged { value in
-                                                if value.translation.width > 1/150 {
-                                                    incrementPsalm()    // slide right → increment
-                                                } else if value.translation.width < 1/150 {
-                                                    decrementPsalm()    // slide left → decrement
-                                                }
-                                            }
-                                    )
-                                
-                                SlidingText(value: psalmNumber + 1)
-                                    .dynamicTypeSize(.small)
-                                    .multilineTextAlignment(.center)
-                                    .textFieldStyle(DefaultTextFieldStyle())
-                                    .font(.title)
-                                    .fontWeight(.semibold)
-                                    .shadow(color: Color.black.opacity(0.3125), radius: 2, x: 0, y: 0)
-                                                            
-                                SlidingText(value: psalmNumber + 2)
-                                    .dynamicTypeSize(.small)
-                                    .multilineTextAlignment(.center)
-                                    .textFieldStyle(DefaultTextFieldStyle())
-                                    .font(.title3)
-                                    .fontWeight(.semibold)
-                                    .shadow(color: Color.black.opacity(0.5), radius: 2, x: 0, y: 0)
-                                
+                                    .background(Color(UIColor.clear))
                                 
                                 Button(action: {
                                     incrementPsalm()
@@ -484,11 +172,10 @@ struct ContentView: View {
                     
                     Button {
                         dismissKeyboard()
-                        Task {
-                            await processingManager.addSinglePsalm(psalmNumber)
-                        }
+                        addPsalmAndRun()
                     } label: {
                         Image(systemName: "pencil")
+//                            .padding(8)
                             .foregroundColor(Color(UIColor.white))
                             .symbolRenderingMode(.hierarchical)
                             .font(.title)
@@ -496,6 +183,13 @@ struct ContentView: View {
                             .imageScale(.large)
                             .labelStyle(.iconOnly)
                             .clipShape(RoundedRectangle(cornerSize: CGSize(width: 25, height: 25), style: .continuous))
+//                            .glassEffect()
+//                            .foregroundColor(Color(UIColor.white))
+//                            .symbolRenderingMode(.monochrome)
+//                            .font(.largeTitle)
+//                            .imageScale(.medium)
+//                            .labelStyle(.iconOnly)
+//                            .clipShape(Circle())
                     }
                     .padding()
                     .glassEffect(in: .rect(cornerRadius: 25.0))
@@ -503,71 +197,61 @@ struct ContentView: View {
                 .ignoresSafeArea()
                 
                 
-                GeometryReader { geometryProxy in
+                GeometryReader { GeometryProxy in
                     ScrollView {
                         VStack(alignment: .leading, spacing: 16) {
-                            ForEach(processingManager.abstracts) { item in
+                            ForEach(abstracts) { item in
                                 let jsonResponse = removeJSONTags(item.response)
                                 VStack(alignment: .leading, spacing: 8) {
                                     Text("Psalm \(item.psalmNumber)")
                                         .font(.title2)
                                         .fontWeight(.medium)
-                                        .frame(idealWidth: geometryProxy.size.width, maxWidth: geometryProxy.size.width)
+                                        .frame(idealWidth: GeometryProxy.size.width, maxWidth: GeometryProxy.size.width)
                                         .padding()
                                         .glassEffect(in: .rect(cornerRadius: 25.0))
                                     
                                     if item.isCompleted {
                                         Text(jsonResponse)
                                             .focusEffectDisabled(false)
-                                            .focusable(true)
                                             .textSelection(.enabled)
-                                            .dynamicTypeSize(DynamicTypeSize.medium)
+                                            .focusable(true)
+                                            .dynamicTypeSize(DynamicTypeSize.xSmall)
                                             .font(.body)
                                             .padding()
-                                            .frame(idealWidth: geometryProxy.size.width, maxWidth: geometryProxy.size.width)
+                                            .frame(idealWidth: GeometryProxy.size.width, maxWidth: GeometryProxy.size.width)
                                     } else {
                                         // Show streaming text even when not completed
                                         if !jsonResponse.isEmpty && jsonResponse != "Pending..." {
                                             Text(jsonResponse)
                                                 .focusEffectDisabled(false)
-                                                .focusable(true)
-                                                .textSelection(.enabled)
-                                                .dynamicTypeSize(DynamicTypeSize.medium)
+                                                .dynamicTypeSize(DynamicTypeSize.xSmall)
                                                 .font(.body)
                                                 .padding()
-                                                .frame(idealWidth: geometryProxy.size.width, maxWidth: geometryProxy.size.width)
+                                                .frame(idealWidth: GeometryProxy.size.width, maxWidth: GeometryProxy.size.width)
                                         } else {
                                             ProgressView()
                                                 .progressViewStyle(CircularProgressViewStyle())
-                                                .frame(idealWidth: geometryProxy.size.width, maxWidth: geometryProxy.size.width)
+                                                .frame(idealWidth: GeometryProxy.size.width, maxWidth: GeometryProxy.size.width)
                                         }
                                     }
                                 }
                                 .padding()
-                                .frame(idealWidth: geometryProxy.size.width, maxWidth: geometryProxy.size.width)
+                                .frame(idealWidth: GeometryProxy.size.width, maxWidth: GeometryProxy.size.width)
                                 .glassEffect(in: .rect(cornerRadius: 25.0))
                             }
                         }
+                        
+//                        Spacer()
                     }
-                    
                 }
             })
             .onAppear {
                 psalmNumberInput = "\(psalmNumber)"
+                Task {
+                    await refreshQueue()
+                }
             }
             .padding(.bottom, 75.0)
-            .sheet(isPresented: $showingBatchSheet) {
-                BatchProcessingSheet(
-                    startNumber: $batchStartNumber,
-                    endNumber: $batchEndNumber,
-                    onProcess: { start, end in
-                        Task {
-                            let numbers = Array(start...end)
-                            await processingManager.addMultiplePsalms(numbers)
-                        }
-                    }
-                )
-            }
             
             VStack {
                 Spacer()
@@ -576,14 +260,12 @@ struct ContentView: View {
                     
                     Text("James Alan Bush")
                         .font(.caption)
-                        .fontWeight(.medium)
                         .foregroundColor(.primary)
                     
                     Spacer()
                     
                     Text("Commit ID 7fe5119")
-                        .font(.caption)
-                        .fontWeight(.light)
+                        .font(.caption2)
                         .foregroundColor(.secondary)
                     
                     
@@ -597,21 +279,56 @@ struct ContentView: View {
         .background {
             LinearGradient(
                 gradient: Gradient(colors: [
-                    Color.primary.opacity(0.75),
+                    Color.primary.opacity(0.25),
                     Color.accentColor.opacity(0.25)
                 ]),
                 startPoint: .bottomTrailing,
                 endPoint: .topLeading
             )
             .ignoresSafeArea()
-            .onTapGesture {
-                isInputFocused = false
-            }
+            
+            
         }
+//        .focusable(true)
+//        .textSelection(.enabled)
     }
     
     private func dismissKeyboard() {
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+    }
+    
+    func extractPlainText(from jsonString: String) -> String {
+        guard let data = jsonString.data(using: .utf8) else { return "" }
+
+        // Try to decode as dictionary with optional "name" and "paragraphs"
+        struct Paragraph: Decodable {
+            let content: String
+        }
+
+        struct Root: Decodable {
+            let name: String?
+            let paragraphs: [Paragraph]?
+        }
+
+        do {
+            let decoded = try JSONDecoder().decode(Root.self, from: data)
+
+            var result = ""
+            if let name = decoded.name {
+                result += name + "\n\n"
+            }
+
+            if let paragraphs = decoded.paragraphs {
+                for paragraph in paragraphs {
+                    result += paragraph.content + "\n\n"
+                }
+            }
+
+            return result.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        } catch {
+            return "Invalid JSON format"
+        }
     }
     
     func psalmText(from fullText: String, number: Int) -> String? {
@@ -633,41 +350,6 @@ struct ContentView: View {
         
         let snippet = fullText[startRange.lowerBound..<endIndex]
         return snippet.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-    
-    func removeJSONTags(_ input: String) -> String {
-        // Pattern to match JSON keys (tags) - quoted strings followed by a colon
-        var result = input
-        
-        // Remove JSON keys/tags and replace with newline
-        // This pattern matches "tagname": including the quotes and colon
-        result = result.replacingOccurrences(of: "\"[^\"]*\"\\s*:", with: "\n\n", options: .regularExpression)
-        
-        // Remove the JSON structure characters (but keep the content)
-        result = result.replacingOccurrences(of: "[{}\\[\\],]", with: "", options: .regularExpression)
-        
-        // Remove quotes around values
-        result = result.replacingOccurrences(of: "\"", with: "")
-        
-        // Clean up multiple spaces (but preserve newlines)
-        result = result.replacingOccurrences(of: "[ \\t]+", with: " ", options: .regularExpression)
-        
-        // Clean up multiple newlines (reduce to maximum of 2)
-        result = result.replacingOccurrences(of: "\n{3,}", with: "\n\n", options: .regularExpression)
-        
-        // Trim leading/trailing whitespace from each line
-        let lines = result.components(separatedBy: .newlines)
-            .map { $0.trimmingCharacters(in: .whitespaces) }
-        
-        // Join lines, removing completely empty ones but preserving single newlines
-        var finalLines: [String] = []
-        for i in 0..<lines.count {
-            if !lines[i].isEmpty || (i > 0 && !lines[i-1].isEmpty) {
-                finalLines.append(lines[i])
-            }
-        }
-        
-        return finalLines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
     }
     
     // MARK: - Stepper Logic
@@ -719,62 +401,457 @@ struct ContentView: View {
             }
         }
     }
-}
-
-// MARK: - Batch Processing Sheet
-struct BatchProcessingSheet: View {
-    @Binding var startNumber: Int
-    @Binding var endNumber: Int
-    let onProcess: (Int, Int) -> Void
-    @Environment(\.dismiss) var dismiss
     
-    var body: some View {
-        NavigationView {
-            VStack(spacing: 20) {
-                Text("Process Multiple Psalms")
-                    .font(.headline)
-                    .padding(.top)
-                
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Start Psalm:")
-                    Stepper(value: $startNumber, in: 1...150) {
-                        Text("\(startNumber)")
-                            .font(.title2)
-                    }
-                    
-                    Text("End Psalm:")
-                    Stepper(value: $endNumber, in: 1...150) {
-                        Text("\(endNumber)")
-                            .font(.title2)
-                    }
-                }
-                .padding()
-                
-                Text("This will process \(max(0, endNumber - startNumber + 1)) psalms concurrently")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                
-                Spacer()
-                
-                HStack {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                    .buttonStyle(.bordered)
-                    
-                    Button("Process") {
-                        if startNumber <= endNumber {
-                            onProcess(startNumber, endNumber)
-                            dismiss()
-                        }
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(startNumber > endNumber)
-                }
-                .padding()
+//    func selectableText(_ string: String) -> some View {
+//        Text(string)
+//            .textSelection(.enabled)
+//            .focusable(true)
+//            .focusEffectDisabled(false)
+//    }
+    
+//    func extractTextFromJSON(_ jsonString: String) -> String {
+//        struct Abstract: Decodable {
+//            let name: String?
+//            let paragraphs: [String]?
+//        }
+//
+//        guard let data = jsonString.data(using: .utf8) else { return "" }
+//
+//        do {
+//            let abstract = try JSONDecoder().decode(Abstract.self, from: data)
+//            var result = ""
+//
+//            if let name = abstract.name {
+//                result += name + "\n\n"
+//            }
+//
+//            if let paragraphs = abstract.paragraphs {
+//                result += paragraphs.joined(separator: "\n\n")
+//            }
+//
+//            return result.trimmingCharacters(in: .whitespacesAndNewlines)
+//
+//        } catch {
+//            return "Invalid JSON format: \(error.localizedDescription)"
+//        }
+//    }
+    
+    func extractAllText(from jsonString: String) -> String {
+        guard let data = jsonString.data(using: .utf8) else { return "" }
+
+        func extractStrings(from value: Any) -> [String] {
+            if let string = value as? String {
+                return [string]
+            } else if let array = value as? [Any] {
+                return array.flatMap { extractStrings(from: $0) }
+            } else if let dict = value as? [String: Any] {
+                return dict.values.flatMap { extractStrings(from: $0) }
+            } else {
+                return []
             }
-            .navigationBarHidden(true)
         }
+
+        do {
+            let json = try JSONSerialization.jsonObject(with: data, options: [])
+            let strings = extractStrings(from: json)
+            return strings.joined(separator: "\n\n").trimmingCharacters(in: .whitespacesAndNewlines)
+        } catch {
+            return "Invalid JSON format: \(error.localizedDescription)"
+        }
+    }
+    
+    func extractTextRemovingJSONTags(_ jsonString: String) -> String {
+        struct ContentWrapper: Decodable {
+            let name: String?
+            let paragraphs: [ParagraphType]?
+        }
+
+        enum ParagraphType: Decodable {
+            case string(String)
+            case object(ParagraphObject)
+
+            init(from decoder: Decoder) throws {
+                let container = try decoder.singleValueContainer()
+                if let str = try? container.decode(String.self) {
+                    self = .string(str)
+                } else {
+                    self = .object(try container.decode(ParagraphObject.self))
+                }
+            }
+
+            var text: String {
+                switch self {
+                case .string(let s): return s
+                case .object(let o): return o.content
+                }
+            }
+        }
+
+        struct ParagraphObject: Decodable {
+            let content: String
+        }
+
+        guard let data = jsonString.data(using: .utf8) else {
+            return "Invalid input encoding"
+        }
+
+        do {
+            let decoded = try JSONDecoder().decode(ContentWrapper.self, from: data)
+            var output = ""
+
+            if let name = decoded.name {
+                output += name + "\n\n"
+            }
+
+            if let paragraphs = decoded.paragraphs {
+                output += paragraphs.map { $0.text }.joined(separator: "\n\n")
+            }
+
+            return output.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        } catch {
+            return "Invalid JSON: \(error.localizedDescription)"
+        }
+    }
+    
+    func extractTextFromJSON(_ input: String) -> String {
+        var result = ""
+        var insideQuotes = false
+        var currentText = ""
+        var isValue = false
+        var previousChar: Character = " "
+        
+        for char in input {
+            switch char {
+            case "\"":
+                if previousChar != "\\" {
+                    if insideQuotes {
+                        // End of quoted text
+                        if isValue && !currentText.isEmpty {
+                            result += currentText + "\n\n"
+                        }
+                        currentText = ""
+                        isValue = false
+                    }
+                    insideQuotes = !insideQuotes
+                }
+                
+            case ":":
+                if !insideQuotes {
+                    // Next quoted text will be a value
+                    isValue = true
+                } else {
+                    currentText += String(char)
+                }
+                
+            case "{", "}", "[", "]", ",":
+                if insideQuotes {
+                    currentText += String(char)
+                }
+                
+            default:
+                if insideQuotes {
+                    currentText += String(char)
+                }
+            }
+            
+            previousChar = char
+        }
+        
+        // Clean up extra newlines and trim
+        result = result.replacingOccurrences(of: "\n\n\n", with: "\n\n")
+        return result.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    // Alternative simpler approach using regex
+    func extractTextFromJSONSimple(_ input: String) -> String {
+        // Match all text between quotes that comes after a colon
+        let pattern = ":\\s*\"([^\"]*)\""
+        
+        do {
+            let regex = try NSRegularExpression(pattern: pattern, options: [])
+            let matches = regex.matches(in: input, options: [], range: NSRange(location: 0, length: input.utf16.count))
+            
+            var extractedTexts: [String] = []
+            
+            for match in matches {
+                if let range = Range(match.range(at: 1), in: input) {
+                    let text = String(input[range])
+                    if !text.isEmpty {
+                        extractedTexts.append(text)
+                    }
+                }
+            }
+            
+            return extractedTexts.joined(separator: "\n\n")
+        } catch {
+            return "Error processing text: \(error.localizedDescription)"
+        }
+    }
+
+    // Alternative version using Codable for more type safety
+    struct TextContent: Codable {
+        let name: String?
+        let paragraphs: [String]?
+    }
+
+    func extractTextFromJSONUsingCodable(_ jsonString: String) -> String {
+        guard let jsonData = jsonString.data(using: .utf8) else {
+            return "Error: Unable to convert string to data"
+        }
+        
+        do {
+            let decoder = JSONDecoder()
+            let content = try decoder.decode(TextContent.self, from: jsonData)
+            
+            var extractedText = ""
+            
+            // Add name if present
+            if let name = content.name {
+                extractedText += name + "\n\n"
+            }
+            
+            // Add paragraphs if present
+            if let paragraphs = content.paragraphs {
+                extractedText += paragraphs.joined(separator: "\n\n")
+            }
+            
+            return extractedText.trimmingCharacters(in: .whitespacesAndNewlines)
+        } catch {
+            return "Error decoding JSON: \(error.localizedDescription)"
+        }
+    }
+ 
+    
+    func removeJSONTags(_ input: String) -> String {
+        // Pattern to match JSON keys (tags) - quoted strings followed by a colon
+        var result = input
+        
+        // Remove JSON keys/tags and replace with newline
+        // This pattern matches "tagname": including the quotes and colon
+        result = result.replacingOccurrences(of: "\"[^\"]*\"\\s*:", with: "\n\n", options: .regularExpression)
+        
+        // Remove the JSON structure characters (but keep the content)
+        result = result.replacingOccurrences(of: "[{}\\[\\],]", with: "", options: .regularExpression)
+        
+        // Remove quotes around values
+        result = result.replacingOccurrences(of: "\"", with: "")
+        
+        // Clean up multiple spaces (but preserve newlines)
+        result = result.replacingOccurrences(of: "[ \\t]+", with: " ", options: .regularExpression)
+        
+        // Clean up multiple newlines (reduce to maximum of 2)
+        result = result.replacingOccurrences(of: "\n{3,}", with: "\n\n", options: .regularExpression)
+        
+        // Trim leading/trailing whitespace from each line
+        let lines = result.components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+        
+        // Join lines, removing completely empty ones but preserving single newlines
+        var finalLines: [String] = []
+        for i in 0..<lines.count {
+            if !lines[i].isEmpty || (i > 0 && !lines[i-1].isEmpty) {
+                finalLines.append(lines[i])
+            }
+        }
+        
+        return finalLines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+    
+    // MARK: - Add & Execute
+    private func addPsalmAndRun() {
+        Task {
+            let abstract = await queue.addPsalm(psalmNumber)
+            await refreshQueue()
+            
+            // Run the psalm abstract generation concurrently
+            await runPsalmAbstract(abstract)
+        }
+    }
+    
+//    func removeJSONTags(_ input: String) -> String {
+//        var result = ""
+//        var insideQuotes = false
+//        var currentText = ""
+//        var skipThisQuotedText = false
+//        var previousNonWhitespaceChar: Character = " "
+//
+//        for char in input {
+//            switch char {
+//            case "\"":
+//                if insideQuotes {
+//                    // Ending quotes
+//                    if !skipThisQuotedText {
+//                        result += currentText
+//                    }
+//                    currentText = ""
+//                    skipThisQuotedText = false
+//                    insideQuotes = false
+//                } else {
+//                    // Starting quotes - check if preceded by brace
+//                    insideQuotes = true
+//                    if previousNonWhitespaceChar == "{" {
+//                        skipThisQuotedText = true
+//                    }
+//                }
+//
+//            default:
+//                if insideQuotes {
+//                    currentText += String(char)
+//                } else {
+//                    result += String(char)
+//                }
+//            }
+//
+//            // Track previous non-whitespace character
+//            if !char.isWhitespace {
+//                previousNonWhitespaceChar = char
+//            }
+//        }
+//
+//        // Clean up the result
+//        // Remove empty braces, brackets, colons, and commas
+//        result = result.replacingOccurrences(of: "[{}\\[\\]:,]", with: "", options: .regularExpression)
+//
+//        // Clean up multiple spaces and newlines
+//        result = result.replacingOccurrences(of: "[ ]+", with: " ", options: .regularExpression)
+//        result = result.replacingOccurrences(of: "\n{3,}", with: "\n\n", options: .regularExpression)
+//
+//        // Trim each line
+//        let lines = result.components(separatedBy: .newlines)
+//            .map { $0.trimmingCharacters(in: .whitespaces) }
+//            .filter { !$0.isEmpty }
+//
+//        return lines.joined(separator: "\n\n")
+//    }
+
+    private func runPsalmAbstract(_ abstract: PsalmAbstract) async {
+        do {
+            // Load psalm text with proper error handling
+            guard let path = Bundle.main.path(forResource: "Psalms", ofType: "txt") else {
+                await queue.updateResponse(for: abstract.id, response: "Error: Could not find Psalms.txt file in bundle", isCompleted: true)
+                await refreshQueue()
+                return
+            }
+            
+            let allText: String
+            do {
+                allText = try String(contentsOfFile: path, encoding: .utf8)
+            } catch {
+                await queue.updateResponse(for: abstract.id, response: "Error: Could not read Psalms.txt file - \(error.localizedDescription)", isCompleted: true)
+                await refreshQueue()
+                return
+            }
+            
+            guard let psalm = psalmText(from: allText, number: abstract.psalmNumber) else {
+                await queue.updateResponse(for: abstract.id, response: "Error: Could not find Psalm \(abstract.psalmNumber) in the text file", isCompleted: true)
+                await refreshQueue()
+                return
+            }
+            
+            // Create instructions with explicit plain text request
+            let instructions = Instructions("""
+                When prompted with a specific Psalm number (e.g., “Psalm 23” or simply “23”), you will produce an abstract that meets the following detailed quality and content standards:
+                Abstract Structure:
+                Your abstract must consist of exactly 6 well-formed paragraphs (each 5–6 sentences in length):
+                Memorable Highlight (Opening Paragraph):
+                Begin with a memorable, direct quote from the Psalm itself (provide verse citation) that best encapsulates the Psalm's central message.
+                Clearly explain the significance of this quote, describing how it captures the Psalm’s essential emphasis.
+                Every statement must reference Scripture directly.
+                Purpose and Spiritual Intent:
+                Clearly articulate the spiritual purpose of the Psalm, detailing its intent and describing how it spiritually assists, comforts, guides, or uplifts the believer.
+                Avoid mentioning authorship unless it explicitly enhances understanding of the Psalm’s spiritual impact.
+                Each statement should be supported explicitly by verse citations or quotations.
+                Key Themes Summary:
+                Identify and describe the primary themes (such as worship, mercy, trust, God’s sovereignty, repentance, etc.) present in the Psalm.
+                Explicitly support each theme mentioned by citing at least one relevant verse or direct quotation from the Psalm.
+                Ensure clarity and precision when summarizing these themes.
+                Theological Summary:
+                Provide a concise yet insightful theological analysis, explaining how the Psalm contributes to the believer's understanding of God's attributes (such as mercy, justice, faithfulness, sovereignty, etc.), faith, and spirituality.
+                Include at least one verse from the Psalm to explicitly support each theological point you present.
+                Keep theological summary within a single, focused paragraph (do not exceed this requirement when combined with Christological summary).
+                Christological Summary:
+                Clearly explain any Christological or messianic elements within the Psalm, explicitly identifying direct or indirect connections to Christ, the gospel message, or messianic prophecies.
+                Explicitly cite verses from the Psalm that directly or indirectly point to Christ or foreshadow New Testament revelation.
+                You may reference specific New Testament scriptures here to demonstrate clear Christological connections.
+                Keep Christological summary brief yet insightful, ensuring combined theological and Christological paragraphs do not exceed two paragraphs.
+                Modern Application:
+                Provide practical and specific guidance on how Christians today can apply the Psalm’s spiritual lessons to daily living.
+                Explicitly cite at least one verse from the Psalm and at least one corresponding scripture from the New Testament that reinforces how the Psalm's teachings align with Christ’s teachings and Christian practice.
+                Clearly advise how believers can embody or live out the Psalm's message practically in contemporary life.
+
+                Additional Mandatory Guidelines:
+                Paragraph Length:
+                Each paragraph must contain at least 5–6 well-crafted, meaningful sentences.
+                Explicit Scripture Citations:
+                EVERY statement you make about the Psalm itself must be supported by direct references to the Psalm’s verses.
+                Clearly reference Scripture (Psalm verses and relevant New Testament verses) for every theological, Christological, thematic, or practical point made.
+                Quotations:
+                At least one direct quotation from the Psalm itself must be included in every paragraph.
+                Direct quotations from the New Testament may also be used, especially to highlight Christological significance or contemporary application.
+                Writing Style:
+                Clarity and Depth:
+                Ensure writing is clear, engaging, spiritually meaningful, and directly supported by Scripture.
+                Conciseness:
+                The abstract should be thorough yet concise, especially regarding theological and Christological analysis. Combined length of these two summaries should never exceed two paragraphs.
+                Plain Text Format:
+                Write in continuous prose with clear paragraph breaks; do not use bullets, lists, numbering, structured data formats (e.g., JSON, XML), or markdown headings beyond this initial instruction.
+                
+                Mandatory Paragraph Length:
+
+                EACH of the six paragraphs must consist of at least 5–6 complete and distinct sentences.
+                Sentences should be well-formed and meaningful, clearly expanding upon or illustrating points made about the Psalm.
+                Short statements or generalizations should be combined or expanded to fulfill this minimum length.
+                Do NOT produce paragraphs shorter than five sentences under any circumstances.
+
+                """)
+            
+            let prompt = Prompt("Write an abstract for Psalm \(abstract.psalmNumber) per your instructions above.")
+            let session = LanguageModelSession(instructions: instructions)
+            
+            // Stream response with throttled updates for better UI performance
+            let stream = session.streamResponse(to: prompt, generating: String.PartiallyGenerated.self)
+            var fullResponse = ""
+            var lastUpdateTime = Date()
+
+            for try await partial in stream {
+                fullResponse = partial
+                
+                // Throttle UI updates to every 100ms for better performance
+                let now = Date()
+                if now.timeIntervalSince(lastUpdateTime) > 0.1 {
+                    await queue.updateResponse(for: abstract.id, response: fullResponse, isCompleted: false)
+                    await refreshQueue()
+                    lastUpdateTime = now
+                }
+                
+                // Optional: Reduced console printing for debugging
+                // Uncomment the line below if you want to see streaming progress in console
+                // print("Streaming: \(fullResponse.suffix(50))...") // Only show last 50 characters
+            }
+            
+            // Final update with completion status
+            if fullResponse.isEmpty {
+                await queue.updateResponse(for: abstract.id, response: "Error: Received empty response from language model", isCompleted: true)
+            } else {
+                // Make sure we have the final complete response
+                await queue.updateResponse(for: abstract.id, response: fullResponse, isCompleted: true)
+                print("✅ Psalm \(abstract.psalmNumber) abstract completed successfully")
+            }
+            
+        } catch {
+            // Handle any streaming or session errors
+            await queue.updateResponse(for: abstract.id, response: "Error: \(error.localizedDescription)", isCompleted: true)
+            print("❌ Error generating Psalm \(abstract.psalmNumber): \(error.localizedDescription)")
+        }
+        
+        // Always refresh queue at the end
+        await refreshQueue()
+    }
+    
+    @MainActor
+    private func refreshQueue() async {
+        abstracts = await queue.currentItems
     }
 }
 
