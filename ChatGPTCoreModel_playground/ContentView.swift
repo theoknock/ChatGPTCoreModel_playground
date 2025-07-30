@@ -751,58 +751,63 @@ struct ContentView: View {
             
             // Create instructions with explicit plain text request
             let instructions = Instructions("""
-                When prompted with a specific Psalm number (e.g., “Psalm 23” or simply “23”), you will produce an abstract that meets the following detailed quality and content standards:
-                Abstract Structure:
-                Your abstract must consist of exactly 6 well-formed paragraphs (each 5–6 sentences in length):
-                Memorable Highlight (Opening Paragraph):
-                Begin with a memorable, direct quote from the Psalm itself (provide verse citation) that best encapsulates the Psalm's central message.
-                Clearly explain the significance of this quote, describing how it captures the Psalm’s essential emphasis.
-                Every statement must reference Scripture directly.
-                Purpose and Spiritual Intent:
-                Clearly articulate the spiritual purpose of the Psalm, detailing its intent and describing how it spiritually assists, comforts, guides, or uplifts the believer.
-                Avoid mentioning authorship unless it explicitly enhances understanding of the Psalm’s spiritual impact.
-                Each statement should be supported explicitly by verse citations or quotations.
-                Key Themes Summary:
-                Identify and describe the primary themes (such as worship, mercy, trust, God’s sovereignty, repentance, etc.) present in the Psalm.
-                Explicitly support each theme mentioned by citing at least one relevant verse or direct quotation from the Psalm.
-                Ensure clarity and precision when summarizing these themes.
-                Theological Summary:
-                Provide a concise yet insightful theological analysis, explaining how the Psalm contributes to the believer's understanding of God's attributes (such as mercy, justice, faithfulness, sovereignty, etc.), faith, and spirituality.
-                Include at least one verse from the Psalm to explicitly support each theological point you present.
-                Keep theological summary within a single, focused paragraph (do not exceed this requirement when combined with Christological summary).
-                Christological Summary:
-                Clearly explain any Christological or messianic elements within the Psalm, explicitly identifying direct or indirect connections to Christ, the gospel message, or messianic prophecies.
-                Explicitly cite verses from the Psalm that directly or indirectly point to Christ or foreshadow New Testament revelation.
-                You may reference specific New Testament scriptures here to demonstrate clear Christological connections.
-                Keep Christological summary brief yet insightful, ensuring combined theological and Christological paragraphs do not exceed two paragraphs.
-                Modern Application:
-                Provide practical and specific guidance on how Christians today can apply the Psalm’s spiritual lessons to daily living.
-                Explicitly cite at least one verse from the Psalm and at least one corresponding scripture from the New Testament that reinforces how the Psalm's teachings align with Christ’s teachings and Christian practice.
-                Clearly advise how believers can embody or live out the Psalm's message practically in contemporary life.
+                Step-by-Step Psalm Abstract Format**
 
-                Additional Mandatory Guidelines:
-                Paragraph Length:
-                Each paragraph must contain at least 5–6 well-crafted, meaningful sentences.
-                Explicit Scripture Citations:
-                EVERY statement you make about the Psalm itself must be supported by direct references to the Psalm’s verses.
-                Clearly reference Scripture (Psalm verses and relevant New Testament verses) for every theological, Christological, thematic, or practical point made.
-                Quotations:
-                At least one direct quotation from the Psalm itself must be included in every paragraph.
-                Direct quotations from the New Testament may also be used, especially to highlight Christological significance or contemporary application.
-                Writing Style:
-                Clarity and Depth:
-                Ensure writing is clear, engaging, spiritually meaningful, and directly supported by Scripture.
-                Conciseness:
-                The abstract should be thorough yet concise, especially regarding theological and Christological analysis. Combined length of these two summaries should never exceed two paragraphs.
-                Plain Text Format:
-                Write in continuous prose with clear paragraph breaks; do not use bullets, lists, numbering, structured data formats (e.g., JSON, XML), or markdown headings beyond this initial instruction.
-                
-                Mandatory Paragraph Length:
+                **When prompted with a specific Psalm (e.g., “Psalm 23” or simply “23”), produce an abstract strictly following these steps:**
 
-                EACH of the six paragraphs must consist of at least 5–6 complete and distinct sentences.
-                Sentences should be well-formed and meaningful, clearly expanding upon or illustrating points made about the Psalm.
-                Short statements or generalizations should be combined or expanded to fulfill this minimum length.
-                Do NOT produce paragraphs shorter than five sentences under any circumstances.
+                **Step 1: Memorable Highlight (1 Paragraph)**
+
+                * Begin with a direct, accurate quotation from the Psalm itself (with verse citation) that best summarizes its central message.
+                * Explain clearly why this verse captures the essential emphasis or core message of the Psalm.
+                * Cite specific verses from the Psalm to support every claim you make.
+
+                **Step 2: Spiritual Purpose (1 Paragraph)**
+
+                * Clearly state the primary spiritual intent or purpose of the Psalm (comfort, encouragement, repentance, worship, guidance, etc.).
+                * Identify the specific audience or spiritual situation it addresses.
+                * Provide specific verses from the Psalm that clearly illustrate this intent or spiritual purpose.
+
+                **Step 3: Key Themes (1 Paragraph)**
+
+                * Clearly identify 2–3 primary themes in the Psalm (such as trust, mercy, God’s faithfulness, repentance, etc.).
+                * Provide explicit and accurate citations (verses and/or quotes) from the Psalm to substantiate each theme you identify.
+                * Briefly discuss why these themes matter spiritually or devotionally to believers.
+
+                **Step 4: Theological Insights (1 Paragraph)**
+
+                * Clearly describe at least two theological insights or attributes of God highlighted by the Psalm (such as sovereignty, mercy, justice, faithfulness, etc.).
+                * Provide at least one clear and direct Psalm verse reference to support each theological insight you present.
+                * Briefly explain how these theological insights deepen a believer’s understanding of God.
+
+                **Step 5: Christological Connections (1 Paragraph)**
+
+                * Clearly identify at least one Christological (messianic or gospel-related) connection from the Psalm.
+                * Cite the exact verse(s) from the Psalm that explicitly or implicitly point to Christ, the gospel message, or prophetic fulfillment.
+                * Provide at least one clear and explicit corresponding New Testament scripture showing how Christ fulfills or mirrors the Psalm’s message.
+
+                **Step 6: Modern Application (1 Paragraph)**
+
+                * Provide at least two specific, practical ways Christians today can apply lessons from this Psalm to their daily lives.
+                * Cite specific verse(s) from the Psalm and corresponding New Testament scriptures that reinforce your suggestions for practical application.
+                * Conclude by briefly explaining how these practices or insights enhance Christian living or spiritual growth.
+
+                ---
+
+                **Additional Instructions for Quality Assurance:**
+
+                * **Accuracy:**
+                  Ensure every Scripture reference is authentic and correctly quoted (no paraphrasing unless explicitly stated as such).
+
+                * **Paragraph length:**
+                  Maintain each step as one distinct paragraph, each consisting of at least 5 well-formed sentences.
+
+                * **Clarity and Structure:**
+                  Follow each step precisely. Do not combine steps or omit requirements.
+
+                * **Citations:**
+                  Always provide specific verse numbers from both the Psalm itself and any New Testament references used.
+
+                **This structured approach ensures consistent quality, spiritual insight, scriptural accuracy, and practical applicability.**
 
                 """)
             
