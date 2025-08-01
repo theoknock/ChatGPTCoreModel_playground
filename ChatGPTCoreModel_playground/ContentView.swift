@@ -246,7 +246,7 @@ struct ContentView: View {
                                                 let utterance = AVSpeechUtterance(string: jsonResponse)
                                                 
                                                 // Configure the utterance
-                                                utterance.rate = 0.57
+                                                utterance.rate = 0.33
                                                 utterance.pitchMultiplier = 0.8
                                                 utterance.postUtteranceDelay = 0.2
                                                 utterance.volume = 0.8
