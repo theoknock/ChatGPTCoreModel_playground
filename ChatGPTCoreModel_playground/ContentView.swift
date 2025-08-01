@@ -110,10 +110,48 @@ struct ContentView: View {
                         .padding([.top, .horizontal])
                 }
                 
+                // MARK: - Stack containing one label and a control group
                 ZStack(alignment: (.trailing), content: {
                     HStack {
                         HStack {
                             Group {
+                                
+                                // MARK: - Decrement button for the Psalm number stepper
+                                Button(action: {
+                                    decrementPsalm()
+                                }, label: {
+                                    Image(systemName: "minus.circle")
+                                        .foregroundColor(Color(UIColor.white))
+                                        .symbolRenderingMode(.hierarchical)
+                                        .font(.title)
+                                        .fontWeight(.medium)
+                                        .imageScale(.large)
+                                        .labelStyle(.iconOnly)
+                                        .clipShape(Circle())
+                                        .glassEffect()
+                                })
+                                // TODO: Add a tap gesture recognizer that increments/decrements the psalm number on touch down
+                                //       (the length of time between touch down and touch up determines whether to defer to the long-press gesture).
+                                .simultaneousGesture(
+                                    // FIXME: The long-press gesture determines the rate at which the psalm number value is incremented/decremented — the longer, the faster
+                                    //        (when the long-press gesture is recognized, it should replace the tap gesture recognizer)
+                                    LongPressGesture().onEnded { _ in
+                                        startTimer(incrementing: false)
+                                    }
+                                )
+                                // FIXME: The drag gesture should be added to the control group view only; remove it from both stepper buttons — it is not a simultaneous gesture)
+                                .simultaneousGesture(
+                                    // TODO: The condition for determining whether to increment or decrement is based on the location of the touch point within the control group view
+                                    //       (if the touch point is to the left of the center, decrement; otherwise, increment).
+                                    //       The value should be set by the location of the touch point and the width of the control group; the duration of the long-press gesture does not apply here
+                                    //       (map the range of valid psalm numbers (1 to 150) to the width of the control group (starting at zero); if the touch point is at the center of the control group, the psalm number value should be set to 75 ).
+                                    DragGesture(minimumDistance: 0).onEnded { _ in
+                                        stopTimer()
+                                    }
+                                )
+                                .buttonStyle(PlainButtonStyle())
+                                .shadow(color: Color.white.opacity(0.5), radius: 2, x: 0, y: 0)
+                                
                                 Button(action: {
                                     decrementPsalm()
                                 }) {
@@ -160,7 +198,7 @@ struct ContentView: View {
                                 
                                 Button(action: {
                                     incrementPsalm()
-                                }) {
+                                }, label: {
                                     Image(systemName: "plus.circle")
                                         .foregroundColor(Color(UIColor.white))
                                         .symbolRenderingMode(.hierarchical)
@@ -170,7 +208,7 @@ struct ContentView: View {
                                         .labelStyle(.iconOnly)
                                         .clipShape(Circle())
                                         .glassEffect()
-                                }
+                                })
                                 .simultaneousGesture(
                                     LongPressGesture().onEnded { _ in
                                         startTimer(incrementing: true)
@@ -183,6 +221,8 @@ struct ContentView: View {
                                 )
                                 .buttonStyle(PlainButtonStyle())
                                 .shadow(color: Color.white.opacity(0.5), radius: 2, x: 0, y: 0)
+                                
+                                
                             }
                             .padding(4)
                         }
@@ -190,6 +230,7 @@ struct ContentView: View {
                         .clipShape(RoundedRectangle(cornerSize: CGSize(width: 25, height: 25), style: .continuous))
                         .padding(.trailing, 75)
                     }
+                }
                     
                     Button {
                         dismissKeyboard()
@@ -218,9 +259,11 @@ struct ContentView: View {
                 .ignoresSafeArea()
                 
                 
+                // MARK: - Scrolling view of Psalm Abstract views
                 GeometryReader { geometryProxy in
+                    // FIXME: scrollView should be the same width as the
                     ScrollView {
-                        VStack(alignment: .center, content: {
+                        VStack(alignment: .center, spacing: 12.0, content: {
                             ForEach(abstracts, content: { abstract in
                                 GroupBox(content: {
                                     let jsonResponse = removeJSONTags(abstract.response)
@@ -228,39 +271,64 @@ struct ContentView: View {
                                         .font(.default)
                                         .multilineTextAlignment(.leading)
                                         .foregroundColor(.primary.opacity(0.8125))
+                                        .frame(width: geometryProxy.size.width, alignment: .center)
                                         .padding()
-                                        .background(
-                                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                                .fill(.ultraThinMaterial)
-                                                .frame(maxWidth: .infinity, alignment: .center)
-                                        )
+                                        .clipShape(RoundedRectangle(cornerRadius: 12.0, style: .continuous))
+                                        .border(Color.red.opacity(0.25), width: 1)
+                                    //                                        .background {
+                                    //                                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    //                                                .fill(.ultraThinMaterial)
+                                    //                                                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                    //                                        }
                                 }, label: {
-                                    HStack {
-                                        Spacer()
-                                        Label("PSALM \(psalmNumber)", systemImage: "number.square")
-                                            .font(.default)
-                                            .multilineTextAlignment(.center)
-                                            .foregroundColor(.primary)
-                                        Spacer()
-                                    }
-                                }).groupBoxStyle(.automatic)
+                                    Label("PSALM \(psalmNumber)", systemImage: "number.square")
+                                        .font(.default)
+                                        .multilineTextAlignment(.leading)
+                                        .foregroundColor(.primary.opacity(1.0))
+                                    //                                        .background(
+                                    //                                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    //                                                .fill(.ultraThinMaterial)
+                                    //                                                .frame(width: geometryProxy.size.width, alignment: .center)
+                                    //                                                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                    //                                        )
+                                        .frame(width: geometryProxy.size.width, alignment: .center)
+                                        .padding()
+                                        .clipShape(RoundedRectangle(cornerRadius: 12.0, style: .continuous))
+                                        .border(Color.red.opacity(0.25), width: 1)
+                                })
+                                .frame(width: geometryProxy.size.width, alignment: .center)
+                                .padding()
+                                .clipShape(RoundedRectangle(cornerRadius: 12.0, style: .continuous))
+                                .border(Color.red.opacity(0.25), width: 1)
                             })
+                            .frame(width: geometryProxy.size.width, alignment: .center)
+                            .padding()
+                            .clipShape(RoundedRectangle(cornerRadius: 12.0, style: .continuous))
+                            .border(Color.red.opacity(0.25), width: 1)
                         })
+                        .frame(width: geometryProxy.size.width, alignment: .center)
+                        .padding()
+                        .clipShape(RoundedRectangle(cornerRadius: 12.0, style: .continuous))
+                        .border(Color.red.opacity(0.25), width: 1)
                     }
+                    .frame(width: geometryProxy.size.width, alignment: .center)
+                    .padding()
+                    .clipShape(RoundedRectangle(cornerRadius: 12.0, style: .continuous))
+                    .border(Color.red.opacity(0.25), width: 1)
                 }
-                                
-//                            })
-//                        })
-//                    }
-//                }
-//                                }, label: {
-//                                    Label(title: "Title", icon: UIImage(systemName: "number.circle"))
-//                                })
-//                            })
-//                        })
-//                    }
-//                }
-           
+                
+                //                            })
+                //                        })
+                //                    }
+                //                }
+                //                                }, label: {
+                //                                    Label(title: "Title", icon: UIImage(systemName: "number.circle"))
+                //                                })
+                //                            })
+                //                        })
+                //                    }
+                //                }
+                
                 //                                VStack(alignment: .leading, spacing: 8) {
                 //                                    Text("Psalm \(item.psalmNumber)")
                 //                                        .font(.title2)
