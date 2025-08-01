@@ -7,6 +7,7 @@
 
 import SwiftUI
 import FoundationModels
+import AVFoundation
 
 // MARK: - Model for a single queued Psalm abstract
 struct PsalmAbstract: Identifiable {
@@ -54,6 +55,7 @@ actor PsalmQueue {
 
 // MARK: - Main View
 struct ContentView: View {
+//    @State private var sharedOperationQueue: OperationQueue
     @State private var psalmNumber: Int = Int.random(in: 1 ... 150)
     @State private var psalmNumberInput: String = String()
     var quotedPsalmNumberInput: Binding<String> {
@@ -78,6 +80,25 @@ struct ContentView: View {
     @State private var timer: Timer?
     @State private var timerInterval: TimeInterval = 0.5
     @State private var isIncrementing: Bool = true
+//    
+//    // Text-to-Speech
+//    var speechUtterance: AVSpeechUtterance {
+//        // Create an utterance
+//        let utterance = AVSpeechUtterance()
+//        
+//        // Configure the utterance
+//        utterance.rate = 0.57
+//        utterance.pitchMultiplier = 0.8
+//        utterance.postUtteranceDelay = 0.2
+//        utterance.volume = 0.8
+//        
+//        // Retrieve the British English voice
+//        let voice = AVSpeechSynthesisVoice(language: "en-GB")
+//        
+//        // Assign the voice to the utterance
+//        utterance.voice = voice
+//    }
+    var speechSynthesizer: AVSpeechSynthesizer = AVSpeechSynthesizer()
     
     var body: some View {
         ZStack {
@@ -219,6 +240,26 @@ struct ContentView: View {
                                             .font(.body)
                                             .padding()
                                             .frame(idealWidth: GeometryProxy.size.width, maxWidth: GeometryProxy.size.width)
+                                            .task {
+                                                print(jsonResponse)
+                                                // Create an utterance
+                                                let utterance = AVSpeechUtterance(string: jsonResponse)
+                                                
+                                                // Configure the utterance
+                                                utterance.rate = 0.57
+                                                utterance.pitchMultiplier = 0.8
+                                                utterance.postUtteranceDelay = 0.2
+                                                utterance.volume = 0.8
+                                                
+                                                // Retrieve the British English voice
+                                                let voice = AVSpeechSynthesisVoice(language: "en-GB")
+                                                
+                                                // Assign the voice to the utterance
+                                                utterance.voice = voice
+                                                Task {
+                                                    self.speechSynthesizer.speak(utterance)
+                                                }
+                                            }
                                     } else {
                                         // Show streaming text even when not completed
                                         if !jsonResponse.isEmpty && jsonResponse != "Pending..." {
@@ -241,7 +282,7 @@ struct ContentView: View {
                             }
                         }
                         
-//                        Spacer()
+                        //                        Spacer()
                     }
                 }
             })
@@ -289,9 +330,34 @@ struct ContentView: View {
             
             
         }
-//        .focusable(true)
-//        .textSelection(.enabled)
+        //        .focusable(true)
+        //        .textSelection(.enabled)
     }
+    
+//    func speakText(_ text: String) {
+//        print("\n----------------------\n(\text)\n----------------------\n")
+//        // Create an utterance
+//        let utterance = AVSpeechUtterance(string: text)
+//        
+//        // Configure the utterance
+//        utterance.rate = 0.57
+//        utterance.pitchMultiplier = 0.8
+//        utterance.postUtteranceDelay = 0.2
+//        utterance.volume = 0.8
+//        
+//        // Retrieve the British English voice
+//        let voice = AVSpeechSynthesisVoice(language: "en-GB")
+//        
+//        // Assign the voice to the utterance
+//        utterance.voice = voice
+//        
+//        // Create a speech synthesizer
+//        let synthesizer = AVSpeechSynthesizer()
+//        
+//        // Tell the synthesizer to speak the utterance
+//        synthesizer.speak(utterance)
+//    }
+
     
     private func dismissKeyboard() {
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
@@ -660,13 +726,14 @@ struct ContentView: View {
     
     // MARK: - Add & Execute
     private func addPsalmAndRun() {
-        Task {
-            let abstract = await queue.addPsalm(psalmNumber)
-            await refreshQueue()
-            
-            // Run the psalm abstract generation concurrently
-            await runPsalmAbstract(abstract)
-        }
+        BlockOperation {
+            Task {
+                await refreshQueue()
+                await runPsalmAbstract(await queue.addPsalm(psalmNumber))
+            }
+            print("Operation running on thread: \(Thread.current)")
+        }.start()
+//        operationQueue.addOperation(operation)
     }
     
 //    func removeJSONTags(_ input: String) -> String {
@@ -813,34 +880,31 @@ struct ContentView: View {
             
             let prompt = Prompt("Write an abstract for Psalm \(abstract.psalmNumber) per your instructions above.")
             let session = LanguageModelSession(instructions: instructions)
-            
-            // Stream response with throttled updates for better UI performance
+
             let stream = session.streamResponse(to: prompt, generating: String.PartiallyGenerated.self)
             var fullResponse = ""
-            var lastUpdateTime = Date()
 
             for try await partial in stream {
                 fullResponse = partial
-                
-                // Throttle UI updates to every 100ms for better performance
-                let now = Date()
-                if now.timeIntervalSince(lastUpdateTime) > 0.1 {
-                    await queue.updateResponse(for: abstract.id, response: fullResponse, isCompleted: false)
-                    await refreshQueue()
-                    lastUpdateTime = now
-                }
-                
-                // Optional: Reduced console printing for debugging
-                // Uncomment the line below if you want to see streaming progress in console
-                // print("Streaming: \(fullResponse.suffix(50))...") // Only show last 50 characters
+                await queue.updateResponse(for: abstract.id, response: fullResponse, isCompleted: false)
+                await refreshQueue()
             }
             
             // Final update with completion status
             if fullResponse.isEmpty {
                 await queue.updateResponse(for: abstract.id, response: "Error: Received empty response from language model", isCompleted: true)
             } else {
+//                let fullUtterance: String = fullResponse
+//                Task.immediate(operation: {
+//                    speakText(fullUtterance)
+//                })
+                
                 // Make sure we have the final complete response
                 await queue.updateResponse(for: abstract.id, response: fullResponse, isCompleted: true)
+                
+                
+                
+                
                 print("✅ Psalm \(abstract.psalmNumber) abstract completed successfully")
             }
             
