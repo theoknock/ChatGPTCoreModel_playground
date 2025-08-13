@@ -15,6 +15,7 @@ struct PsalmAbstract: Identifiable {
     var psalmNumber: Int
     var response: String = "Pending..."
     var isCompleted: Bool = false
+    var avSpeechSynthesizer: AVSpeechSynthesizer = AVSpeechSynthesizer()
 }
 
 // MARK: - Actor for safe queueing
@@ -81,23 +82,21 @@ struct ContentView: View {
     @State private var timerInterval: TimeInterval = 0.5
     @State private var isIncrementing: Bool = true
     //
-    //    // Text-to-Speech
-    //    var speechUtterance: AVSpeechUtterance {
-    //        // Create an utterance
-    //        let utterance = AVSpeechUtterance()
-    //
-    //        // Configure the utterance
-    //        utterance.rate = 0.57
-    //        utterance.pitchMultiplier = 0.8
-    //        utterance.postUtteranceDelay = 0.2
-    //        utterance.volume = 0.8
-    //
-    //        // Retrieve the British English voice
-    //        let voice = AVSpeechSynthesisVoice(language: "en-GB")
-    //
-    //        // Assign the voice to the utterance
-    //        utterance.voice = voice
-    //    }
+    // Text-to-Speech
+    func makeUtterance(_ text: String, language: String = "en-US") -> AVSpeechUtterance {
+        let utterance = AVSpeechUtterance(string: text)
+        utterance.rate = 0.57
+        utterance.pitchMultiplier = 0.8
+        utterance.postUtteranceDelay = 0.2
+        utterance.volume = 0.8
+        utterance.voice = AVSpeechSynthesisVoice(language: language)
+        return utterance
+    }
+    
+    func speak(_ text: String, language: String = "en-US", psalmAbstract: PsalmAbstract) {
+        let utterance = makeUtterance(text, language: language)
+        psalmAbstract.avSpeechSynthesizer.speak(utterance)
+    }
     var speechSynthesizer: AVSpeechSynthesizer = AVSpeechSynthesizer()
     
     var body: some View {
@@ -224,7 +223,14 @@ struct ContentView: View {
                             ForEach(abstracts, content: { abstract in
                                 GroupBox(content: {
                                     let jsonResponse = removeJSONTags(abstract.response)
+                                        
                                     Text(jsonResponse)
+                                        .task(priority: .high, {
+                                            if ((abstract).avSpeechSynthesizer.isSpeaking) {
+                                                (abstract).avSpeechSynthesizer.stopSpeaking(at: .immediate)
+                                            }
+                                            (abstract).avSpeechSynthesizer.speak(makeUtterance(jsonResponse))
+                                        })
                                         .font(.default)
                                         .multilineTextAlignment(.leading)
                                         .foregroundColor(.primary.opacity(0.8125))
@@ -237,30 +243,59 @@ struct ContentView: View {
                                 }, label: {
                                     HStack {
                                         Spacer()
-                                        Label("PSALM \(psalmNumber)", systemImage: "number.square")
-                                            .font(.default)
-                                            .multilineTextAlignment(.center)
-                                            .foregroundColor(.primary)
+                                        Button {
+                                            if ((abstract).avSpeechSynthesizer.isSpeaking) {
+                                                (abstract).avSpeechSynthesizer.stopSpeaking(at: .immediate)
+                                            } else {
+                                                (abstract).avSpeechSynthesizer.speak(makeUtterance(removeJSONTags(abstract.response)))
+                                            }
+                                        } label: {
+                                            Image(systemName: "speaker.wave.2.bubble")
+                                            //                            .padding(8)
+                                                .foregroundColor(Color(UIColor.white))
+                                                .symbolRenderingMode(.hierarchical)
+                                                .font(.title)
+                                                .fontWeight(.medium)
+                                                .imageScale(.large)
+                                                .labelStyle(.iconOnly)
+                                                .clipShape(RoundedRectangle(cornerSize: CGSize(width: 25, height: 25), style: .continuous))
+                                            //                            .glassEffect()
+                                            //                            .foregroundColor(Color(UIColor.white))
+                                            //                            .symbolRenderingMode(.monochrome)
+                                            //                            .font(.largeTitle)
+                                            //                            .imageScale(.medium)
+                                            //                            .labelStyle(.iconOnly)
+                                            //                            .clipShape(Circle())
+                                        }
+                                        .padding()
+                                        .glassEffect(in: .rect(cornerRadius: 25.0))
+//                                        Label("Psalm \(psalmNumber)", systemImage: "")
+//                                            .font(.default)
+//                                            .multilineTextAlignment(.center)
+//                                            .foregroundColor(.primary)
+//                                        
+//                                        
                                         Spacer()
                                     }
                                 }).groupBoxStyle(.automatic)
+
                             })
                         })
                     }
                 }
-                                
-//                            })
-//                        })
-//                    }
-//                }
-//                                }, label: {
-//                                    Label(title: "Title", icon: UIImage(systemName: "number.circle"))
-//                                })
-//                            })
-//                        })
-//                    }
-//                }
-           
+                
+                //                            })
+                //                        })
+                //                    }
+                //                }
+                //                                }, label: {
+                //                                    Label(title: "Title", icon: UIImage(systemName: "number.circle"))
+                //                                })
+                //                            })
+                //                        })
+                //                    }
+                //                }
+                
                 //                                VStack(alignment: .leading, spacing: 8) {
                 //                                    Text("Psalm \(item.psalmNumber)")
                 //                                        .font(.title2)
@@ -424,18 +459,18 @@ struct ContentView: View {
         do {
             let decoded = try JSONDecoder().decode(Root.self, from: data)
             
-            var result = ""
+            var result: String? = nil
             if let name = decoded.name {
-                result += name + "\n\n"
+                result! += name + "\n\n"
             }
             
             if let paragraphs = decoded.paragraphs {
                 for paragraph in paragraphs {
-                    result += paragraph.content + "\n\n"
+                    result! += paragraph.content + "\n\n"
                 }
             }
             
-            return result.trimmingCharacters(in: .whitespacesAndNewlines)
+            return result!.trimmingCharacters(in: .whitespacesAndNewlines)
             
         } catch {
             return "Invalid JSON format"
@@ -855,7 +890,7 @@ struct ContentView: View {
                 return
             }
             
-            guard let psalm = psalmText(from: allText, number: abstract.psalmNumber) else {
+            guard psalmText(from: allText, number: abstract.psalmNumber) != nil else {
                 await queue.updateResponse(for: abstract.id, response: "Error: Could not find Psalm \(abstract.psalmNumber) in the text file", isCompleted: true)
                 await refreshQueue()
                 return
@@ -930,7 +965,7 @@ struct ContentView: View {
             var fullResponse = ""
             
             for try await partial in stream {
-                fullResponse = partial
+                fullResponse = partial.content
                 await queue.updateResponse(for: abstract.id, response: fullResponse, isCompleted: false)
                 await refreshQueue()
             }

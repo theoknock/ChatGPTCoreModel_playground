@@ -13,6 +13,7 @@
 /* Begin PBXFileReference section */
 		B91F2D9E2E26E02A00A9B15A /* ChatGPTCoreModel_playground.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ChatGPTCoreModel_playground.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B98B16FD2E38C76C00C32811 /* DeadCode.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = DeadCode.md; sourceTree = "<group>"; };
+		B9BDA1492E4D036800B4C484 /* ChatGPTCoreModel_playground.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = ChatGPTCoreModel_playground.xcodeproj; path = ChatGPTCoreModel_playground/ChatGPTCoreModel_playground.xcodeproj; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -47,6 +48,13 @@
 			isa = PBXGroup;
 			children = (
 				B91F2D9E2E26E02A00A9B15A /* ChatGPTCoreModel_playground.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		B9BDA14C2E4D036900B4C484 /* Products */ = {
+			isa = PBXGroup;
+			children = (
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -103,6 +111,12 @@
 			preferredProjectObjectVersion = 77;
 			productRefGroup = B91F2D9F2E26E02A00A9B15A /* Products */;
 			projectDirPath = "";
+			projectReferences = (
+				{
+					ProductGroup = B9BDA14C2E4D036900B4C484 /* Products */;
+					ProjectRef = B9BDA1492E4D036800B4C484 /* ChatGPTCoreModel_playground.xcodeproj */;
+				},
+			);
 			projectRoot = "";
 			targets = (
 				B91F2D9D2E26E02A00A9B15A /* ChatGPTCoreModel_playground */,
