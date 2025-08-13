@@ -101,7 +101,7 @@ struct ContentView: View {
     
     var body: some View {
         ZStack {
-            VStack(alignment: .leading, content: {
+            VStack {
                 HStack {
                     Text("PSALM ABSTRACT GENERATOR")
                         .font(.body)
@@ -214,7 +214,7 @@ struct ContentView: View {
                     .padding()
                     .glassEffect(in: .rect(cornerRadius: 25.0))
                 })
-                .ignoresSafeArea()
+                // .ignoresSafeArea() // Removed as per instructions
                 
                 
                 GeometryReader { geometryProxy in
@@ -223,14 +223,7 @@ struct ContentView: View {
                             ForEach(abstracts, content: { abstract in
                                 GroupBox(content: {
                                     let jsonResponse = removeJSONTags(abstract.response)
-                                        
                                     Text(jsonResponse)
-                                        .task(priority: .high, {
-                                            if ((abstract).avSpeechSynthesizer.isSpeaking) {
-                                                (abstract).avSpeechSynthesizer.stopSpeaking(at: .immediate)
-                                            }
-                                            (abstract).avSpeechSynthesizer.speak(makeUtterance(jsonResponse))
-                                        })
                                         .font(.default)
                                         .multilineTextAlignment(.leading)
                                         .foregroundColor(.primary.opacity(0.8125))
@@ -244,44 +237,50 @@ struct ContentView: View {
                                     HStack {
                                         Spacer()
                                         Button {
-                                            if ((abstract).avSpeechSynthesizer.isSpeaking) {
-                                                (abstract).avSpeechSynthesizer.stopSpeaking(at: .immediate)
-                                            } else {
-                                                (abstract).avSpeechSynthesizer.speak(makeUtterance(removeJSONTags(abstract.response)))
+                                            Task {
+                                                if ((abstract).avSpeechSynthesizer.isSpeaking) {
+                                                    (abstract).avSpeechSynthesizer.stopSpeaking(at: .immediate)
+                                                } else {
+                                                    (abstract).avSpeechSynthesizer.speak(makeUtterance(removeJSONTags(abstract.response)))
+                                                }
                                             }
                                         } label: {
-                                            Image(systemName: "speaker.wave.2.bubble")
-                                            //                            .padding(8)
-                                                .foregroundColor(Color(UIColor.white))
-                                                .symbolRenderingMode(.hierarchical)
-                                                .font(.title)
-                                                .fontWeight(.medium)
-                                                .imageScale(.large)
-                                                .labelStyle(.iconOnly)
-                                                .clipShape(RoundedRectangle(cornerSize: CGSize(width: 25, height: 25), style: .continuous))
-                                            //                            .glassEffect()
-                                            //                            .foregroundColor(Color(UIColor.white))
-                                            //                            .symbolRenderingMode(.monochrome)
-                                            //                            .font(.largeTitle)
-                                            //                            .imageScale(.medium)
-                                            //                            .labelStyle(.iconOnly)
-                                            //                            .clipShape(Circle())
-                                        }
+                                            HStack(alignment: .lastTextBaseline, content: {
+                                                
+                                                Image(systemName: "speaker.wave.2.bubble")
+                                                    .foregroundColor(Color(UIColor.white))
+                                                    .symbolRenderingMode(.hierarchical)
+                                                    .font(.title)
+                                                    .fontWeight(.medium)
+                                                    .imageScale(.large)
+                                                    .labelStyle(.iconOnly)
+                                                    .clipShape(RoundedRectangle(cornerSize: CGSize(width: 25, height: 25), style: .continuous))
+                                                
+                                                Image(systemName: "xmark.square")
+                                                    .foregroundColor(Color(UIColor.white))
+                                                    .symbolRenderingMode(.hierarchical)
+                                                    .font(.title)
+                                                    .fontWeight(.medium)
+                                                    .imageScale(.large)
+                                                    .labelStyle(.iconOnly)
+                                                    .clipShape(RoundedRectangle(cornerSize: CGSize(width: 25, height: 25), style: .continuous))
+                                                
+                                                Spacer()
+                                            }
+                                        )}
                                         .padding()
-                                        .glassEffect(in: .rect(cornerRadius: 25.0))
-//                                        Label("Psalm \(psalmNumber)", systemImage: "")
-//                                            .font(.default)
-//                                            .multilineTextAlignment(.center)
-//                                            .foregroundColor(.primary)
-//                                        
-//                                        
+//                                        .glassEffect(in: .rect(cornerRadius: 25.0))
+                                        
                                         Spacer()
+                                        
+                                        
                                     }
                                 }).groupBoxStyle(.automatic)
-
+                                
                             })
                         })
                     }
+                    .frame(maxWidth: .infinity)
                 }
                 
                 //                            })
@@ -373,70 +372,25 @@ struct ContentView: View {
                 //            }
                 //            .padding(.bottom, 75.0)
                 //
-                VStack {
+                // Attribution footer replaced by safeAreaInset below
+            }
+            .safeAreaInset(edge: .bottom) {
+                HStack(alignment: .bottom) {
+                    Text("James Alan Bush")
+                        .font(.caption)
+                        .foregroundColor(.primary)
                     Spacer()
-                    
-                    HStack(alignment: .bottom, content: {
-                        
-                        Text("James Alan Bush")
-                            .font(.caption)
-                            .foregroundColor(.primary)
-                        
-                        Spacer()
-                        
-                        Text("Commit ID 7fe5119")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                        
-                        
-                    })
-                    .padding()
-                    .frame(idealWidth: .infinity, maxWidth: .infinity)
-                    .glassEffect(in: .rect(cornerRadius: 25.0))
+                    Text("Commit ID 3a58dff")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
                 }
+                .padding()
+                .frame(maxWidth: .infinity)
+                .glassEffect(in: .rect(cornerRadius: 25.0))
                 .padding(.horizontal)
             }
-                   //                .background {
-                   //                    LinearGradient(
-                   //                        gradient: Gradient(colors: [
-                   //                            Color.primary.opacity(0.25),
-                   //                            Color.accentColor.opacity(0.25)
-                   //                        ]),
-                   //                        startPoint: .bottomTrailing,
-                   //                        endPoint: .topLeading
-                   //                    )
-                   //                    .ignoresSafeArea()
-                   //
-                   //
-                   //                }
-                   //                   //        .focusable(true)
-                   //                   //        .textSelection(.enabled)
-                   //        }
-                   
-                   //    func speakText(_ text: String) {
-                   //        print("\n----------------------\n(\text)\n----------------------\n")
-                   //        // Create an utterance
-                   //        let utterance = AVSpeechUtterance(string: text)
-                   //
-                   //        // Configure the utterance
-                   //        utterance.rate = 0.57
-                   //        utterance.pitchMultiplier = 0.8
-                   //        utterance.postUtteranceDelay = 0.2
-                   //        utterance.volume = 0.8
-                   //
-                   //        // Retrieve the British English voice
-                   //        let voice = AVSpeechSynthesisVoice(language: "en-GB")
-                   //
-                   //        // Assign the voice to the utterance
-                   //        utterance.voice = voice
-                   //
-                   //        // Create a speech synthesizer
-                   //        let synthesizer = AVSpeechSynthesizer()
-                   //
-                   //        // Tell the synthesizer to speak the utterance
-                   //        synthesizer.speak(utterance)
-                   //    }
-            )}
+//            .border(Color.red, width: 1.0)
+        }
     }
     
     private func dismissKeyboard() {
