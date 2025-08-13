@@ -16,6 +16,8 @@ struct PsalmAbstract: Identifiable {
     var response: String = "Pending..."
     var isCompleted: Bool = false
     var avSpeechSynthesizer: AVSpeechSynthesizer = AVSpeechSynthesizer()
+    @State private var isSpeaking: Bool = false
+    
 }
 
 // MARK: - Actor for safe queueing
@@ -74,6 +76,7 @@ struct ContentView: View {
         )
     }
     @State private var abstracts: [PsalmAbstract] = []
+    @State private var forceRedraw: Bool = false
     
     private let queue = PsalmQueue()
     
@@ -83,24 +86,41 @@ struct ContentView: View {
     @State private var isIncrementing: Bool = true
     //
     // Text-to-Speech
-    func makeUtterance(_ text: String, language: String = "en-US") -> AVSpeechUtterance {
+    func makeUtterance(_ text: String) -> AVSpeechUtterance {
         let utterance = AVSpeechUtterance(string: text)
-        utterance.rate = 0.57
-        utterance.pitchMultiplier = 0.8
+        utterance.rate = 0.5
+        utterance.pitchMultiplier = 0.5
         utterance.postUtteranceDelay = 0.2
+        utterance.rate = AVSpeechUtteranceDefaultSpeechRate
         utterance.volume = 0.8
-        utterance.voice = AVSpeechSynthesisVoice(language: language)
+        utterance.pitchMultiplier = 0.0
+        utterance.voice = makeVoice()
         return utterance
     }
     
+    func makeVoice() -> AVSpeechSynthesisVoice {
+        let voice = AVSpeechSynthesisVoice(language: "en-US")
+        return voice!
+    }
+    
     func speak(_ text: String, language: String = "en-US", psalmAbstract: PsalmAbstract) {
-        let utterance = makeUtterance(text, language: language)
+        let utterance = makeUtterance(text) //makeUtterance(text, language: language)
         psalmAbstract.avSpeechSynthesizer.speak(utterance)
     }
     var speechSynthesizer: AVSpeechSynthesizer = AVSpeechSynthesizer()
     
     var body: some View {
         ZStack {
+            LinearGradient(
+                gradient: Gradient(colors: [
+                    Color.primary.opacity(0.25),
+                    Color.accentColor.opacity(0.25)
+                ]),
+                startPoint: .bottomTrailing,
+                endPoint: .topLeading
+            )
+            .edgesIgnoringSafeArea(.all)
+            
             VStack {
                 HStack {
                     Text("PSALM ABSTRACT GENERATOR")
@@ -113,9 +133,10 @@ struct ContentView: View {
                     HStack {
                         HStack {
                             Group {
-                                Button(action: {
+                                Button/*(action:*/ {
                                     decrementPsalm()
-                                }) {
+                                    //                                }) {
+                                } label: {
                                     Image(systemName: "minus.circle")
                                         .foregroundColor(Color(UIColor.white))
                                         .symbolRenderingMode(.hierarchical)
@@ -152,7 +173,7 @@ struct ContentView: View {
                                         if let value = Int(filtered) {
                                             psalmNumber = min(max(value, 1), 150)
                                         }
-                                        psalmNumberInput = "\(psalmNumber)"
+                                        psalmNumberInput = "Psalm \(psalmNumber)"
                                     }
                                     .foregroundColor(Color(UIColor.white))
                                     .background(Color(UIColor.clear))
@@ -190,39 +211,49 @@ struct ContentView: View {
                         .padding(.trailing, 75)
                     }
                     
-                    Button {
+                    Button/*(action:*/ {
                         dismissKeyboard()
                         addPsalmAndRun()
+                        //                                }) {
                     } label: {
                         Image(systemName: "pencil")
-                        //                            .padding(8)
                             .foregroundColor(Color(UIColor.white))
                             .symbolRenderingMode(.hierarchical)
                             .font(.title)
                             .fontWeight(.medium)
                             .imageScale(.large)
                             .labelStyle(.iconOnly)
-                            .clipShape(RoundedRectangle(cornerSize: CGSize(width: 25, height: 25), style: .continuous))
-                        //                            .glassEffect()
-                        //                            .foregroundColor(Color(UIColor.white))
-                        //                            .symbolRenderingMode(.monochrome)
-                        //                            .font(.largeTitle)
-                        //                            .imageScale(.medium)
-                        //                            .labelStyle(.iconOnly)
-                        //                            .clipShape(Circle())
+                            .clipShape(Circle())
+                            .glassEffect()
                     }
+                    .buttonStyle(PlainButtonStyle())
+                    .shadow(color: Color.white.opacity(0.5), radius: 2, x: 0, y: 0)
                     .padding()
-                    .glassEffect(in: .rect(cornerRadius: 25.0))
                 })
-                // .ignoresSafeArea() // Removed as per instructions
-                
+    
                 
                 GeometryReader { geometryProxy in
                     ScrollView {
                         VStack(alignment: .center, content: {
                             ForEach(abstracts, content: { abstract in
                                 GroupBox(content: {
-                                    let jsonResponse = removeJSONTags(abstract.response)
+                                    var jsonResponse: String = removeJSONTags(abstract.response)
+                                    var jsonResponseBound: Binding<String> {
+                                        Binding<String>(
+                                            get: {
+                                                "\(jsonResponse)"
+                                            },
+                                            set: { newValue in
+                                                jsonResponse = newValue
+                                                
+                                            }
+                                        )
+                                    }
+//                                    TextField(jsonResponse, text: jsonResponseBound)
+//                                        .font(.default)
+//                                        .fontWeight(.medium)
+//                                        .shadow(color: Color.black.opacity(0.5), radius: 2, x: 0, y: 0)
+//                                        .foregroundColor(.primary.opacity(0.8125))
                                     Text(jsonResponse)
                                         .font(.default)
                                         .multilineTextAlignment(.leading)
@@ -234,8 +265,13 @@ struct ContentView: View {
                                                 .frame(maxWidth: .infinity, alignment: .center)
                                         )
                                 }, label: {
-                                    HStack {
-                                        Spacer()
+                                    HStack(alignment: .lastTextBaseline, content: {
+                                        TextField("Psalm \(psalmNumber)", text: quotedPsalmNumberInput)  ///("PSALM \(quotedPsalmNumberInput)")
+                                            .font(.title2)
+                                            .fontWeight(.medium)
+                                            .shadow(color: Color.black.opacity(0.5), radius: 2, x: 0, y: 0)
+                                            .foregroundColor(.primary.opacity(0.8125))
+                                        //                                            .glassEffect()
                                         Button {
                                             Task {
                                                 if ((abstract).avSpeechSynthesizer.isSpeaking) {
@@ -243,11 +279,20 @@ struct ContentView: View {
                                                 } else {
                                                     (abstract).avSpeechSynthesizer.speak(makeUtterance(removeJSONTags(abstract.response)))
                                                 }
+                                                
+                                                //                                                    if ((abstract).avSpeechSynthesizer.isPaused) {
+                                                //                                                    (abstract).avSpeechSynthesizer.continueSpeaking()
+                                                //                                                } else {
+                                                //                                                    if ((abstract).avSpeechSynthesizer.isSpeaking) {
+                                                //                                                        (abstract).avSpeechSynthesizer.stopSpeaking(at: .immediate)
+                                                //                                                    } else {
+                                                //                                                        (abstract).avSpeechSynthesizer.speak(makeUtterance(removeJSONTags(abstract.response)))
+                                                //                                                    }
+                                                
                                             }
                                         } label: {
                                             HStack(alignment: .lastTextBaseline, content: {
-                                                
-                                                Image(systemName: "speaker.wave.2.bubble")
+                                                Image(systemName: (abstract).avSpeechSynthesizer.isSpeaking ? "speaker.wave.2.bubble.fill" : "speaker.wave.2.bubble") // this should also observe changes to the isSpeaking property of PsalmAbstract and update its image accodingly
                                                     .foregroundColor(Color(UIColor.white))
                                                     .symbolRenderingMode(.hierarchical)
                                                     .font(.title)
@@ -256,31 +301,49 @@ struct ContentView: View {
                                                     .labelStyle(.iconOnly)
                                                     .clipShape(RoundedRectangle(cornerSize: CGSize(width: 25, height: 25), style: .continuous))
                                                 
-                                                Image(systemName: "xmark.square")
-                                                    .foregroundColor(Color(UIColor.white))
-                                                    .symbolRenderingMode(.hierarchical)
-                                                    .font(.title)
-                                                    .fontWeight(.medium)
-                                                    .imageScale(.large)
-                                                    .labelStyle(.iconOnly)
-                                                    .clipShape(RoundedRectangle(cornerSize: CGSize(width: 25, height: 25), style: .continuous))
-                                                
-                                                Spacer()
                                             }
-                                        )}
-                                        .padding()
-//                                        .glassEffect(in: .rect(cornerRadius: 25.0))
+                                            )}
                                         
-                                        Spacer()
+                                        Image(systemName: "arrow.up.square")
+                                            .foregroundColor(Color(UIColor.white))
+                                            .symbolRenderingMode(.hierarchical)
+                                            .font(.title)
+                                            .fontWeight(.medium)
+                                            .imageScale(.large)
+                                            .labelStyle(.iconOnly)
+                                            .clipShape(RoundedRectangle(cornerSize: CGSize(width: 25, height: 25), style: .continuous))
+                                        Image(systemName: "xmark.square")
+                                            .foregroundColor(Color(UIColor.white))
+                                            .symbolRenderingMode(.hierarchical)
+                                            .font(.title)
+                                            .fontWeight(.medium)
+                                            .imageScale(.large)
+                                            .labelStyle(.iconOnly)
+                                            .clipShape(RoundedRectangle(cornerSize: CGSize(width: 25, height: 25), style: .continuous))
                                         
                                         
-                                    }
+                                        
+                                    })
                                 }).groupBoxStyle(.automatic)
-                                
                             })
                         })
                     }
                     .frame(maxWidth: .infinity)
+                    .safeAreaInset(edge: .bottom) {
+                        HStack(alignment: .bottom) {
+                            Text("James Alan Bush")
+                                .font(.caption)
+                                .foregroundColor(.primary)
+                            Spacer()
+                            Text("Commit ID 296be90")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding()
+                        .frame(maxWidth: .infinity)
+                        .glassEffect(in: .rect(cornerRadius: 25.0))
+                        .padding(.horizontal)
+                    }
                 }
                 
                 //                            })
@@ -374,22 +437,8 @@ struct ContentView: View {
                 //
                 // Attribution footer replaced by safeAreaInset below
             }
-            .safeAreaInset(edge: .bottom) {
-                HStack(alignment: .bottom) {
-                    Text("James Alan Bush")
-                        .font(.caption)
-                        .foregroundColor(.primary)
-                    Spacer()
-                    Text("Commit ID 3a58dff")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                }
-                .padding()
-                .frame(maxWidth: .infinity)
-                .glassEffect(in: .rect(cornerRadius: 25.0))
-                .padding(.horizontal)
-            }
-//            .border(Color.red, width: 1.0)
+            // Footer safeAreaInset moved to ScrollView above
+            //            .border(Color.red, width: 1.0)
         }
     }
     
@@ -851,67 +900,47 @@ struct ContentView: View {
             }
             
             // Create instructions with explicit plain text request
-            let instructions = Instructions("""
-                Step-by-Step Psalm Abstract Format**
-                
-                **When prompted with a specific Psalm (e.g., “Psalm 23” or simply “23”), produce an abstract strictly following these steps:**
-                
-                **Step 1: Memorable Highlight (1 Paragraph)**
-                
-                * Begin with a direct, accurate quotation from the Psalm itself (with verse citation) that best summarizes its central message.
-                * Explain clearly why this verse captures the essential emphasis or core message of the Psalm.
-                * Cite specific verses from the Psalm to support every claim you make.
-                
-                **Step 2: Spiritual Purpose (1 Paragraph)**
-                
-                * Clearly state the primary spiritual intent or purpose of the Psalm (comfort, encouragement, repentance, worship, guidance, etc.).
-                * Identify the specific audience or spiritual situation it addresses.
-                * Provide specific verses from the Psalm that clearly illustrate this intent or spiritual purpose.
-                
-                **Step 3: Key Themes (1 Paragraph)**
-                
-                * Clearly identify 2–3 primary themes in the Psalm (such as trust, mercy, God’s faithfulness, repentance, etc.).
-                * Provide explicit and accurate citations (verses and/or quotes) from the Psalm to substantiate each theme you identify.
-                * Briefly discuss why these themes matter spiritually or devotionally to believers.
-                
-                **Step 4: Theological Insights (1 Paragraph)**
-                
-                * Clearly describe at least two theological insights or attributes of God highlighted by the Psalm (such as sovereignty, mercy, justice, faithfulness, etc.).
-                * Provide at least one clear and direct Psalm verse reference to support each theological insight you present.
-                * Briefly explain how these theological insights deepen a believer’s understanding of God.
-                
-                **Step 5: Christological Connections (1 Paragraph)**
-                
-                * Clearly identify at least one Christological (messianic or gospel-related) connection from the Psalm.
-                * Cite the exact verse(s) from the Psalm that explicitly or implicitly point to Christ, the gospel message, or prophetic fulfillment.
-                * Provide at least one clear and explicit corresponding New Testament scripture showing how Christ fulfills or mirrors the Psalm’s message.
-                
-                **Step 6: Modern Application (1 Paragraph)**
-                
-                * Provide at least two specific, practical ways Christians today can apply lessons from this Psalm to their daily lives.
-                * Cite specific verse(s) from the Psalm and corresponding New Testament scriptures that reinforce your suggestions for practical application.
-                * Conclude by briefly explaining how these practices or insights enhance Christian living or spiritual growth.
-                
-                ---
-                
-                **Additional Instructions for Quality Assurance:**
-                
-                * **Accuracy:**
-                  Ensure every Scripture reference is authentic and correctly quoted (no paraphrasing unless explicitly stated as such).
-                
-                * **Paragraph length:**
-                  Maintain each step as one distinct paragraph, each consisting of at least 5 well-formed sentences.
-                
-                * **Clarity and Structure:**
-                  Follow each step precisely. Do not combine steps or omit requirements.
-                
-                * **Citations:**
-                  Always provide specific verse numbers from both the Psalm itself and any New Testament references used.
-                
-                **This structured approach ensures consistent quality, spiritual insight, scriptural accuracy, and practical applicability.**
-                
-                """)
-            
+                    let instructions = Instructions("""
+                        Step-by-Step Psalm Abstract Format**
+                        
+                        **When prompted with a specific Psalm (e.g., “Psalm 23” or simply “23”), produce an abstract strictly following these steps:**
+                        **Step 1: Memorable Highlight (1 Paragraph)**        
+                        * Begin with a direct, accurate quotation from the Psalm itself (with verse citation) that best summarizes its central message.
+                        * Explain clearly why this verse captures the essential emphasis or core message of the Psalm.
+                        * Cite specific verses from the Psalm to support every claim you make.
+                        **Step 2: Spiritual Purpose (1 Paragraph)**
+                        * Clearly state the primary spiritual intent or purpose of the Psalm (comfort, encouragement, repentance, worship, guidance, etc.).
+                        * Identify the specific audience or spiritual situation it addresses.
+                        * Provide specific verses from the Psalm that clearly illustrate this intent or spiritual purpose.
+                        **Step 3: Key Themes (1 Paragraph)**
+                        * Clearly identify 2–3 primary themes in the Psalm (such as trust, mercy, God’s faithfulness, repentance, etc.).
+                        * Provide explicit and accurate citations (verses and/or quotes) from the Psalm to substantiate each theme you identify.
+                        * Briefly discuss why these themes matter spiritually or devotionally to believers.
+                        **Step 4: Theological Insights (1 Paragraph)**
+                        * Clearly describe at least two theological insights or attributes of God highlighted by the Psalm (such as sovereignty, mercy, justice, faithfulness, etc.).
+                        * Provide at least one clear and direct Psalm verse reference to support each theological insight you present.
+                        * Briefly explain how these theological insights deepen a believer’s understanding of God.
+                        **Step 5: Christological Connections (1 Paragraph)**
+                        * Clearly identify at least one Christological (messianic or gospel-related) connection from the Psalm.
+                        * Cite the exact verse(s) from the Psalm that explicitly or implicitly point to Christ, the gospel message, or prophetic fulfillment.
+                        * Provide at least one clear and explicit corresponding New Testament scripture showing how Christ fulfills or mirrors the Psalm’s message.
+                        **Step 6: Modern Application (1 Paragraph)**
+                        * Provide at least two specific, practical ways Christians today can apply lessons from this Psalm to their daily lives.
+                        * Cite specific verse(s) from the Psalm and corresponding New Testament scriptures that reinforce your suggestions for practical application.
+                        * Conclude by briefly explaining how these practices or insights enhance Christian living or spiritual growth.
+                        ---
+                        **Additional Instructions for Quality Assurance:**
+                        * **Accuracy:**
+                          Ensure every Scripture reference is authentic and correctly quoted (no paraphrasing unless explicitly stated as such).
+                        * **Paragraph length:**
+                          Maintain each step as one distinct paragraph, each consisting of at least 5 well-formed sentences.
+                        * **Clarity and Structure:**
+                          Follow each step precisely. Do not combine steps or omit requirements.        
+                        * **Citations:**
+                          Always provide specific verse numbers from both the Psalm itself and any New Testament references used.
+                        **This structured approach ensures consistent quality, spiritual insight, scriptural accuracy, and practical applicability.**
+                        """)
+        
             let prompt = Prompt("Write an abstract for Psalm \(abstract.psalmNumber) per your instructions above.")
             let session = LanguageModelSession(instructions: instructions)
             
