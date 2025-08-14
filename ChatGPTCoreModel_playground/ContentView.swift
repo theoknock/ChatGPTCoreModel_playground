@@ -56,9 +56,63 @@ actor PsalmQueue {
     }
 }
 
+final class AsyncBlockOperation: Operation {
+    private let work: @Sendable () async -> Void
+    private var _executing = false
+    private var _finished = false
+
+    init(work: @escaping @Sendable () async -> Void) {
+        self.work = work
+        super.init()
+    }
+
+    override var isAsynchronous: Bool { true }
+
+    override private(set) var isExecuting: Bool {
+        get { _executing }
+        set {
+            willChangeValue(forKey: "isExecuting")
+            _executing = newValue
+            didChangeValue(forKey: "isExecuting")
+        }
+    }
+
+    override private(set) var isFinished: Bool {
+        get { _finished }
+        set {
+            willChangeValue(forKey: "isFinished")
+            _finished = newValue
+            didChangeValue(forKey: "isFinished")
+        }
+    }
+
+    override func start() {
+        if isCancelled {
+            isFinished = true
+            return
+        }
+        isExecuting = true
+        print("▶️ Starting async operation: \(self.name ?? "Unnamed") on thread: \(Thread.current)")
+        print("🧵 isAsynchronous: \(self.isAsynchronous)")
+        print("🧵 isConcurrent: \(self.isConcurrent)")
+        Task {
+            await work()
+            print("✅ Finished async operation: \(self.name ?? "Unnamed") on thread: \(Thread.current)")
+            isExecuting = false
+            isFinished = true
+        }
+    }
+}
+
 // MARK: - Main View
 struct ContentView: View {
     //    @State private var sharedOperationQueue: OperationQueue
+    @State private var psalmsOperationQueue: OperationQueue = {
+        let queue = OperationQueue()
+        queue.maxConcurrentOperationCount = 3
+        queue.name = "psalmsOperationQueue"
+        return queue
+    }()
     @State private var psalmNumber: Int = Int.random(in: 1 ... 150)
     @State private var psalmNumberInput: String = String()
     var quotedPsalmNumberInput: Binding<String> {
@@ -76,7 +130,6 @@ struct ContentView: View {
         )
     }
     @State private var abstracts: [PsalmAbstract] = []
-    @State private var forceRedraw: Bool = false
     
     private let queue = PsalmQueue()
     
@@ -94,7 +147,7 @@ struct ContentView: View {
         utterance.rate = AVSpeechUtteranceDefaultSpeechRate
         utterance.volume = 0.8
         utterance.pitchMultiplier = 0.0
-        utterance.voice = makeVoice()
+        utterance.voice = .speechVoices().first ?? makeVoice()
         return utterance
     }
     
@@ -103,9 +156,8 @@ struct ContentView: View {
         return voice!
     }
     
-    func speak(_ text: String, language: String = "en-US", psalmAbstract: PsalmAbstract) {
-        let utterance = makeUtterance(text) //makeUtterance(text, language: language)
-        psalmAbstract.avSpeechSynthesizer.speak(utterance)
+    func speak(_ text: String,  psalmAbstract: PsalmAbstract) {
+        psalmAbstract.avSpeechSynthesizer.speak(makeUtterance(text))
     }
     var speechSynthesizer: AVSpeechSynthesizer = AVSpeechSynthesizer()
     
@@ -323,7 +375,7 @@ struct ContentView: View {
                                 .font(.caption)
                                 .foregroundColor(.primary)
                             Spacer()
-                            Text("Commit ID 296be90")
+                            Text("Commit ID a79a3ce")
                                 .font(.caption2)
                                 .foregroundColor(.secondary)
                         }
@@ -333,139 +385,12 @@ struct ContentView: View {
                         .padding(.horizontal)
                     }
                 }
-                
-                //                            })
-                //                        })
-                //                    }
-                //                }
-                //                                }, label: {
-                //                                    Label(title: "Title", icon: UIImage(systemName: "number.circle"))
-                //                                })
-                //                            })
-                //                        })
-                //                    }
-                //                }
-                
-                //                                VStack(alignment: .leading, spacing: 8) {
-                //                                    Text("Psalm \(item.psalmNumber)")
-                //                                        .font(.title2)
-                //                                        .fontWeight(.medium)
-                //                                        .frame(idealWidth: GeometryProxy.size.width, maxWidth: GeometryProxy.size.width)
-                //                                        .padding()
-                //                                        .glassEffect(in: .rect(cornerRadius: 25.0))
-                //
-                //                                    if item.isCompleted.wrappedValue {
-                //                                        Text(jsonResponse)
-                //                                            .focusEffectDisabled(false)
-                //                                            .textSelection(.enabled)
-                //                                            .focusable(true)
-                //                                            .dynamicTypeSize(DynamicTypeSize.xSmall)
-                //                                            .font(.body)
-                //                                            .padding()
-                //                                            .frame(idealWidth: GeometryProxy.size.width, maxWidth: GeometryProxy.size.width)
-                //                                            .task {
-                //                                                print(jsonResponse)
-                //                                                // Create an utterance
-                //                                                let utterance = AVSpeechUtterance(string: jsonResponse)
-                //
-                //                                                // Configure the utterance
-                //                                                utterance.rate = 0.5
-                //                                                utterance.pitchMultiplier = 0.8
-                //                                                utterance.postUtteranceDelay = 0.2
-                //                                                utterance.volume = 0.8
-                //
-                //                                                // Specify the voice as US English
-                ////                                                let voice = AVSpeechSynthesisVoice(language: "en-US")
-                ////                                                voice.gender = .male
-                ////                                                voice.quality = .premium
-                //
-                //                                                // Assign the voice to the utterance
-                //                                                utterance.voice = AVSpeechSynthesisVoice {
-                //                                                    return AVSpeechSynthesisVoice(language: "en-US")
-                //                                                }
-                ////                                                utterance.voice.gender = .male
-                //
-                //                                                Task {
-                //                                                    self.speechSynthesizer.speak(utterance)
-                //                                                }
-                //                                            }
-                //                                    } else {
-                //                                        // Show streaming text even when not completed
-                //                                        if !jsonResponse.isEmpty && jsonResponse != "Pending..." {
-                //                                            Text(jsonResponse)
-                //                                                .focusEffectDisabled(false)
-                //                                                .dynamicTypeSize(DynamicTypeSize.xSmall)
-                //                                                .font(.body)
-                //                                                .padding()
-                //                                                .frame(idealWidth: GeometryProxy.size.width, maxWidth: GeometryProxy.size.width)
-                //                                        } else {
-                //                                            ProgressView()
-                //                                                .progressViewStyle(CircularProgressViewStyle())
-                //                                                .frame(idealWidth: GeometryProxy.size.width, maxWidth: GeometryProxy.size.width)
-                //                                        }
-                //                                    }
-                //                                }
-                //                                .padding()
-                //                                .frame(idealWidth: GeometryProxy.size.width, maxWidth: GeometryProxy.size.width)
-                //                                .glassEffect(in: .rect(cornerRadius: 25.0))
-                //                            }
-                //                        }
-                //
-                //                        //                        Spacer()
-                //                    }
-                //                }
-                //            })
-                //            .onAppear {
-                //                psalmNumberInput = "\(psalmNumber)"
-                //                Task {
-                //                    await refreshQueue()
-                //                }
-                //            }
-                //            .padding(.bottom, 75.0)
-                //
-                // Attribution footer replaced by safeAreaInset below
             }
-            // Footer safeAreaInset moved to ScrollView above
-            //            .border(Color.red, width: 1.0)
         }
     }
     
     private func dismissKeyboard() {
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-    }
-    
-    func extractPlainText(from jsonString: String) -> String {
-        guard let data = jsonString.data(using: .utf8) else { return "" }
-        
-        // Try to decode as dictionary with optional "name" and "paragraphs"
-        struct Paragraph: Decodable {
-            let content: String
-        }
-        
-        struct Root: Decodable {
-            let name: String?
-            let paragraphs: [Paragraph]?
-        }
-        
-        do {
-            let decoded = try JSONDecoder().decode(Root.self, from: data)
-            
-            var result: String? = nil
-            if let name = decoded.name {
-                result! += name + "\n\n"
-            }
-            
-            if let paragraphs = decoded.paragraphs {
-                for paragraph in paragraphs {
-                    result! += paragraph.content + "\n\n"
-                }
-            }
-            
-            return result!.trimmingCharacters(in: .whitespacesAndNewlines)
-            
-        } catch {
-            return "Invalid JSON format"
-        }
     }
     
     func psalmText(from fullText: String, number: Int) -> String? {
@@ -539,172 +464,6 @@ struct ContentView: View {
         }
     }
     
-    //    func selectableText(_ string: String) -> some View {
-    //        Text(string)
-    //            .textSelection(.enabled)
-    //            .focusable(true)
-    //            .focusEffectDisabled(false)
-    //    }
-    
-    //    func extractTextFromJSON(_ jsonString: String) -> String {
-    //        struct Abstract: Decodable {
-    //            let name: String?
-    //            let paragraphs: [String]?
-    //        }
-    //
-    //        guard let data = jsonString.data(using: .utf8) else { return "" }
-    //
-    //        do {
-    //            let abstract = try JSONDecoder().decode(Abstract.self, from: data)
-    //            var result = ""
-    //
-    //            if let name = abstract.name {
-    //                result += name + "\n\n"
-    //            }
-    //
-    //            if let paragraphs = abstract.paragraphs {
-    //                result += paragraphs.joined(separator: "\n\n")
-    //            }
-    //
-    //            return result.trimmingCharacters(in: .whitespacesAndNewlines)
-    //
-    //        } catch {
-    //            return "Invalid JSON format: \(error.localizedDescription)"
-    //        }
-    //    }
-    
-    func extractAllText(from jsonString: String) -> String {
-        guard let data = jsonString.data(using: .utf8) else { return "" }
-        
-        func extractStrings(from value: Any) -> [String] {
-            if let string = value as? String {
-                return [string]
-            } else if let array = value as? [Any] {
-                return array.flatMap { extractStrings(from: $0) }
-            } else if let dict = value as? [String: Any] {
-                return dict.values.flatMap { extractStrings(from: $0) }
-            } else {
-                return []
-            }
-        }
-        
-        do {
-            let json = try JSONSerialization.jsonObject(with: data, options: [])
-            let strings = extractStrings(from: json)
-            return strings.joined(separator: "\n\n").trimmingCharacters(in: .whitespacesAndNewlines)
-        } catch {
-            return "Invalid JSON format: \(error.localizedDescription)"
-        }
-    }
-    
-    func extractTextRemovingJSONTags(_ jsonString: String) -> String {
-        struct ContentWrapper: Decodable {
-            let name: String?
-            let paragraphs: [ParagraphType]?
-        }
-        
-        enum ParagraphType: Decodable {
-            case string(String)
-            case object(ParagraphObject)
-            
-            init(from decoder: Decoder) throws {
-                let container = try decoder.singleValueContainer()
-                if let str = try? container.decode(String.self) {
-                    self = .string(str)
-                } else {
-                    self = .object(try container.decode(ParagraphObject.self))
-                }
-            }
-            
-            var text: String {
-                switch self {
-                case .string(let s): return s
-                case .object(let o): return o.content
-                }
-            }
-        }
-        
-        struct ParagraphObject: Decodable {
-            let content: String
-        }
-        
-        guard let data = jsonString.data(using: .utf8) else {
-            return "Invalid input encoding"
-        }
-        
-        do {
-            let decoded = try JSONDecoder().decode(ContentWrapper.self, from: data)
-            var output = ""
-            
-            if let name = decoded.name {
-                output += name + "\n\n"
-            }
-            
-            if let paragraphs = decoded.paragraphs {
-                output += paragraphs.map { $0.text }.joined(separator: "\n\n")
-            }
-            
-            return output.trimmingCharacters(in: .whitespacesAndNewlines)
-            
-        } catch {
-            return "Invalid JSON: \(error.localizedDescription)"
-        }
-    }
-    
-    func extractTextFromJSON(_ input: String) -> String {
-        var result = ""
-        var insideQuotes = false
-        var currentText = ""
-        var isValue = false
-        var previousChar: Character = " "
-        
-        for char in input {
-            switch char {
-            case "\"":
-                if previousChar != "\\" {
-                    if insideQuotes {
-                        // End of quoted text
-                        if isValue && !currentText.isEmpty {
-                            result += currentText + "\n\n"
-                        }
-                        currentText = ""
-                        isValue = false
-                    }
-                    insideQuotes = !insideQuotes
-                }
-                
-            case ":":
-                if !insideQuotes {
-                    // Next quoted text will be a value
-                    isValue = true
-                } else {
-                    currentText += String(char)
-                }
-                
-            case "{", "}", "[", "]", ",":
-                if insideQuotes {
-                    currentText += String(char)
-                }
-                
-            default:
-                if insideQuotes {
-                    currentText += String(char)
-                }
-            }
-            
-            previousChar = char
-        }
-        
-        // Clean up extra newlines and trim
-        result = result.replacingOccurrences(of: "\n\n\n", with: "\n\n")
-        return result.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-    
-    // Alternative version using Codable for more type safety
-    struct TextContent: Codable {
-        let name: String?
-        let paragraphs: [String]?
-    }
     
     func removeJSONTags(_ input: String) -> String {
         // Pattern to match JSON keys (tags) - quoted strings followed by a colon
@@ -746,15 +505,18 @@ struct ContentView: View {
     }
     
     // MARK: - Add & Execute
+    
+    
+    
     private func addPsalmAndRun() {
-        BlockOperation {
-            Task {
-                await refreshQueue()
-                await runPsalmAbstract(await queue.addPsalm(psalmNumber))
-            }
-            print("Operation running on thread: \(Thread.current)")
-        }.start()
-        //        operationQueue.addOperation(operation)
+        let currentPsalm = psalmNumber
+        let op = AsyncBlockOperation {
+            await refreshQueue()
+            let item = await queue.addPsalm(currentPsalm)
+            await runPsalmAbstract(item)
+        }
+        op.name = "Psalm \(currentPsalm)"
+        psalmsOperationQueue.addOperation(op)
     }
     
     private func runPsalmAbstract(_ abstract: PsalmAbstract) async {

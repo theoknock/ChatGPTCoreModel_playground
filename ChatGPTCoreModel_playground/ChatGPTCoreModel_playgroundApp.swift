@@ -7,14 +7,11 @@
 
 import SwiftUI
 import SwiftData
+import Observation
 
 @main
 struct ChatGPTCoreModel_playgroundApp: App {
-    @State private var operationQueue: OperationQueue = {
-        let queue = OperationQueue()
-        queue.maxConcurrentOperationCount = 150
-        return queue
-    }()
+    
     //    var sharedModelContainer: ModelContainer = {
     //        let schema = Schema([
     //            Item.self,
