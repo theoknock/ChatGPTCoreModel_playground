@@ -238,40 +238,38 @@ struct ContentView: View {
                             ForEach(abstracts, content: { abstract in
                                 GroupBox(content: {
                                     var jsonResponse: String = removeJSONTags(abstract.response)
-                                    var jsonResponseBound: Binding<String> {
-                                        Binding<String>(
-                                            get: {
-                                                "\(jsonResponse)"
-                                            },
-                                            set: { newValue in
-                                                jsonResponse = newValue
-                                                
-                                            }
-                                        )
-                                    }
 //                                    TextField(jsonResponse, text: jsonResponseBound)
 //                                        .font(.default)
 //                                        .fontWeight(.medium)
 //                                        .shadow(color: Color.black.opacity(0.5), radius: 2, x: 0, y: 0)
 //                                        .foregroundColor(.primary.opacity(0.8125))
+                                    //                                        .textSelection(.enabled)
+                                    //                                        .focusable(true)
+                                    //                                        .focusEffectDisabled(false)
+
                                     Text(jsonResponse)
                                         .font(.default)
                                         .multilineTextAlignment(.leading)
                                         .foregroundColor(.primary.opacity(0.8125))
                                         .padding()
                                         .background(
-                                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                                .fill(.ultraThinMaterial)
-                                                .frame(maxWidth: .infinity, alignment: .center)
+                                            LinearGradient(
+                                                gradient: Gradient(colors: [
+                                                    Color.primary.opacity(0.25),
+                                                    Color.accentColor.opacity(0.25)
+                                                ]),
+                                                startPoint: .bottomTrailing,
+                                                endPoint: .topLeading
+                                            )
                                         )
+                                        .cornerRadius(10)
                                 }, label: {
                                     HStack(alignment: .lastTextBaseline, content: {
-                                        TextField("Psalm \(psalmNumber)", text: quotedPsalmNumberInput)  ///("PSALM \(quotedPsalmNumberInput)")
-                                            .font(.title2)
-                                            .fontWeight(.medium)
-                                            .shadow(color: Color.black.opacity(0.5), radius: 2, x: 0, y: 0)
-                                            .foregroundColor(.primary.opacity(0.8125))
-                                        //                                            .glassEffect()
+//                                        TextField("Psalm \(psalmNumber)", text: quotedPsalmNumberInput)  ///("PSALM \(quotedPsalmNumberInput)")
+//                                            .font(.title2)
+//                                            .fontWeight(.medium)
+//                                            .shadow(color: Color.black.opacity(0.5), radius: 2, x: 0, y: 0)
+//                                            .foregroundColor(.primary.opacity(0.8125))
                                         Button {
                                             Task {
                                                 if ((abstract).avSpeechSynthesizer.isSpeaking) {
@@ -279,16 +277,6 @@ struct ContentView: View {
                                                 } else {
                                                     (abstract).avSpeechSynthesizer.speak(makeUtterance(removeJSONTags(abstract.response)))
                                                 }
-                                                
-                                                //                                                    if ((abstract).avSpeechSynthesizer.isPaused) {
-                                                //                                                    (abstract).avSpeechSynthesizer.continueSpeaking()
-                                                //                                                } else {
-                                                //                                                    if ((abstract).avSpeechSynthesizer.isSpeaking) {
-                                                //                                                        (abstract).avSpeechSynthesizer.stopSpeaking(at: .immediate)
-                                                //                                                    } else {
-                                                //                                                        (abstract).avSpeechSynthesizer.speak(makeUtterance(removeJSONTags(abstract.response)))
-                                                //                                                    }
-                                                
                                             }
                                         } label: {
                                             HStack(alignment: .lastTextBaseline, content: {
@@ -712,71 +700,21 @@ struct ContentView: View {
         return result.trimmingCharacters(in: .whitespacesAndNewlines)
     }
     
-    // Alternative simpler approach using regex
-    func extractTextFromJSONSimple(_ input: String) -> String {
-        // Match all text between quotes that comes after a colon
-        let pattern = ":\\s*\"([^\"]*)\""
-        
-        do {
-            let regex = try NSRegularExpression(pattern: pattern, options: [])
-            let matches = regex.matches(in: input, options: [], range: NSRange(location: 0, length: input.utf16.count))
-            
-            var extractedTexts: [String] = []
-            
-            for match in matches {
-                if let range = Range(match.range(at: 1), in: input) {
-                    let text = String(input[range])
-                    if !text.isEmpty {
-                        extractedTexts.append(text)
-                    }
-                }
-            }
-            
-            return extractedTexts.joined(separator: "\n\n")
-        } catch {
-            return "Error processing text: \(error.localizedDescription)"
-        }
-    }
-    
     // Alternative version using Codable for more type safety
     struct TextContent: Codable {
         let name: String?
         let paragraphs: [String]?
     }
     
-    func extractTextFromJSONUsingCodable(_ jsonString: String) -> String {
-        guard let jsonData = jsonString.data(using: .utf8) else {
-            return "Error: Unable to convert string to data"
-        }
-        
-        do {
-            let decoder = JSONDecoder()
-            let content = try decoder.decode(TextContent.self, from: jsonData)
-            
-            var extractedText = ""
-            
-            // Add name if present
-            if let name = content.name {
-                extractedText += name + "\n\n"
-            }
-            
-            // Add paragraphs if present
-            if let paragraphs = content.paragraphs {
-                extractedText += paragraphs.joined(separator: "\n\n")
-            }
-            
-            return extractedText.trimmingCharacters(in: .whitespacesAndNewlines)
-        } catch {
-            return "Error decoding JSON: \(error.localizedDescription)"
-        }
-    }
-    
-    
     func removeJSONTags(_ input: String) -> String {
         // Pattern to match JSON keys (tags) - quoted strings followed by a colon
         var result = input
         
         // Remove JSON keys/tags and replace with newline
+        
+        // This pattern matches "```json"
+        result = result.replacingOccurrences(of: #"```json"#, with: "\n", options: .regularExpression)
+        
         // This pattern matches "tagname": including the quotes and colon
         result = result.replacingOccurrences(of: "\"[^\"]*\"\\s*:", with: "\n\n", options: .regularExpression)
         
@@ -819,62 +757,6 @@ struct ContentView: View {
         //        operationQueue.addOperation(operation)
     }
     
-    //    func removeJSONTags(_ input: String) -> String {
-    //        var result = ""
-    //        var insideQuotes = false
-    //        var currentText = ""
-    //        var skipThisQuotedText = false
-    //        var previousNonWhitespaceChar: Character = " "
-    //
-    //        for char in input {
-    //            switch char {
-    //            case "\"":
-    //                if insideQuotes {
-    //                    // Ending quotes
-    //                    if !skipThisQuotedText {
-    //                        result += currentText
-    //                    }
-    //                    currentText = ""
-    //                    skipThisQuotedText = false
-    //                    insideQuotes = false
-    //                } else {
-    //                    // Starting quotes - check if preceded by brace
-    //                    insideQuotes = true
-    //                    if previousNonWhitespaceChar == "{" {
-    //                        skipThisQuotedText = true
-    //                    }
-    //                }
-    //
-    //            default:
-    //                if insideQuotes {
-    //                    currentText += String(char)
-    //                } else {
-    //                    result += String(char)
-    //                }
-    //            }
-    //
-    //            // Track previous non-whitespace character
-    //            if !char.isWhitespace {
-    //                previousNonWhitespaceChar = char
-    //            }
-    //        }
-    //
-    //        // Clean up the result
-    //        // Remove empty braces, brackets, colons, and commas
-    //        result = result.replacingOccurrences(of: "[{}\\[\\]:,]", with: "", options: .regularExpression)
-    //
-    //        // Clean up multiple spaces and newlines
-    //        result = result.replacingOccurrences(of: "[ ]+", with: " ", options: .regularExpression)
-    //        result = result.replacingOccurrences(of: "\n{3,}", with: "\n\n", options: .regularExpression)
-    //
-    //        // Trim each line
-    //        let lines = result.components(separatedBy: .newlines)
-    //            .map { $0.trimmingCharacters(in: .whitespaces) }
-    //            .filter { !$0.isEmpty }
-    //
-    //        return lines.joined(separator: "\n\n")
-    //    }
-    
     private func runPsalmAbstract(_ abstract: PsalmAbstract) async {
         do {
             // Load psalm text with proper error handling
@@ -901,45 +783,72 @@ struct ContentView: View {
             
             // Create instructions with explicit plain text request
                     let instructions = Instructions("""
-                        Step-by-Step Psalm Abstract Format**
                         
-                        **When prompted with a specific Psalm (e.g., “Psalm 23” or simply “23”), produce an abstract strictly following these steps:**
-                        **Step 1: Memorable Highlight (1 Paragraph)**        
-                        * Begin with a direct, accurate quotation from the Psalm itself (with verse citation) that best summarizes its central message.
-                        * Explain clearly why this verse captures the essential emphasis or core message of the Psalm.
-                        * Cite specific verses from the Psalm to support every claim you make.
-                        **Step 2: Spiritual Purpose (1 Paragraph)**
-                        * Clearly state the primary spiritual intent or purpose of the Psalm (comfort, encouragement, repentance, worship, guidance, etc.).
-                        * Identify the specific audience or spiritual situation it addresses.
-                        * Provide specific verses from the Psalm that clearly illustrate this intent or spiritual purpose.
-                        **Step 3: Key Themes (1 Paragraph)**
-                        * Clearly identify 2–3 primary themes in the Psalm (such as trust, mercy, God’s faithfulness, repentance, etc.).
-                        * Provide explicit and accurate citations (verses and/or quotes) from the Psalm to substantiate each theme you identify.
-                        * Briefly discuss why these themes matter spiritually or devotionally to believers.
-                        **Step 4: Theological Insights (1 Paragraph)**
-                        * Clearly describe at least two theological insights or attributes of God highlighted by the Psalm (such as sovereignty, mercy, justice, faithfulness, etc.).
-                        * Provide at least one clear and direct Psalm verse reference to support each theological insight you present.
-                        * Briefly explain how these theological insights deepen a believer’s understanding of God.
-                        **Step 5: Christological Connections (1 Paragraph)**
-                        * Clearly identify at least one Christological (messianic or gospel-related) connection from the Psalm.
-                        * Cite the exact verse(s) from the Psalm that explicitly or implicitly point to Christ, the gospel message, or prophetic fulfillment.
-                        * Provide at least one clear and explicit corresponding New Testament scripture showing how Christ fulfills or mirrors the Psalm’s message.
-                        **Step 6: Modern Application (1 Paragraph)**
-                        * Provide at least two specific, practical ways Christians today can apply lessons from this Psalm to their daily lives.
-                        * Cite specific verse(s) from the Psalm and corresponding New Testament scriptures that reinforce your suggestions for practical application.
-                        * Conclude by briefly explaining how these practices or insights enhance Christian living or spiritual growth.
-                        ---
-                        **Additional Instructions for Quality Assurance:**
-                        * **Accuracy:**
-                          Ensure every Scripture reference is authentic and correctly quoted (no paraphrasing unless explicitly stated as such).
-                        * **Paragraph length:**
-                          Maintain each step as one distinct paragraph, each consisting of at least 5 well-formed sentences.
-                        * **Clarity and Structure:**
-                          Follow each step precisely. Do not combine steps or omit requirements.        
-                        * **Citations:**
-                          Always provide specific verse numbers from both the Psalm itself and any New Testament references used.
-                        **This structured approach ensures consistent quality, spiritual insight, scriptural accuracy, and practical applicability.**
+                        1. A Highlight: The abstract should begin with a key highlight that best represents the central message or emphasis of the Psalm, reflecting its specific content and significance.
+                        2. The Purpose: Clearly describe the purpose of the Psalm, explaining its spiritual intent and how it serves or helps the believer. Avoid mentioning the writer unless referring to the Psalm’s direct impact on worship or spiritual life.
+                        3. Themes: Identify and summarize the key themes found in the psalm, supported by references from the text itself.
+                        4. Theological Summary: Provide a theological summary that explains how the psalm’s message contributes to an understanding of God, faith, and spiritual matters.
+                        5. Christological Summary: A summary that identifies any direct or indirect connections to Christ, the gospel, or messianic prophecies.
+                        6. Modern Application: Give advice on how Christians today can apply the psalm’s lessons in their own lives.
+
+                        Prompts can be single psalm (e.g., “Psalm 23” or “23”), and also be a range or sequence of psalms (e.g., “Psalm 22 through 23”). When a sequence or range of psalms is specified, combine each abstract into one response. Do not mix abstracts; each psalm should have its own abstract.
+
+                        When a request includes more than one psalm (whether a range, list, or sequence), you must write a full, independent six-paragraph abstract for each psalm, preserving the complete required structure: Highlight, Purpose, Themes, Theological Summary, Christological Summary, and Modern Application. Do not combine psalms into a shared summary or condense their structure. For each psalm in the request, repeat the six paragraphs in full before moving to the next psalm. Each abstract must stand alone as if it were the only psalm being summarized. No paragraph count is to be reduced in multi-psalm outputs.
+
+                        Regardless, PsalmsAbstractGPT must meet the following criteria for every abstract:
+
+                        1a. Start with a memorable quote that encapsulates the main or key idea of the psalm.
+                        1b. The abstract should consist of 6 well-formed paragraphs that highlight the Psalm’s key message, its purpose, themes, and any theological and Christological significance. Each paragraph should be at least 5 sentences.
+                        2. The abstract should incorporate specific verses from the Psalm itself to support the identified themes, along with New Testament scripture to show how the psalm’s message relates to Christian faith, especially in connection to Christ.
+                        3. The last paragraph should offer practical advice on how Christians can apply the psalm’s message in their daily lives. The response should remain brief yet thorough, never exceeding two paragraphs for the Christological and theological summaries combined.
+
+                        No headers. Just paragraphs. Casual, friendly tone.
+
+                        Use the Psalms.txt file uploaded to your Knowledge as this sole source of your scripture references and quotes.
+                        
                         """)
+            
+            /*
+             
+             Step-by-Step Psalm Abstract Format**
+             
+             **When prompted with a specific Psalm (e.g., “Psalm 23” or simply “23”), produce an abstract strictly following these steps:**
+             **Step 1: Memorable Highlight (1 Paragraph)**
+             * Begin with a direct, accurate quotation from the Psalm itself (with verse citation) that best summarizes its central message.
+             * Explain clearly why this verse captures the essential emphasis or core message of the Psalm.
+             * Cite specific verses from the Psalm to support every claim you make.
+             **Step 2: Spiritual Purpose (1 Paragraph)**
+             * Clearly state the primary spiritual intent or purpose of the Psalm (comfort, encouragement, repentance, worship, guidance, etc.).
+             * Identify the specific audience or spiritual situation it addresses.
+             * Provide specific verses from the Psalm that clearly illustrate this intent or spiritual purpose.
+             **Step 3: Key Themes (1 Paragraph)**
+             * Clearly identify 2–3 primary themes in the Psalm (such as trust, mercy, God’s faithfulness, repentance, etc.).
+             * Provide explicit and accurate citations (verses and/or quotes) from the Psalm to substantiate each theme you identify.
+             * Briefly discuss why these themes matter spiritually or devotionally to believers.
+             **Step 4: Theological Insights (1 Paragraph)**
+             * Clearly describe at least two theological insights or attributes of God highlighted by the Psalm (such as sovereignty, mercy, justice, faithfulness, etc.).
+             * Provide at least one clear and direct Psalm verse reference to support each theological insight you present.
+             * Briefly explain how these theological insights deepen a believer’s understanding of God.
+             **Step 5: Christological Connections (1 Paragraph)**
+             * Clearly identify at least one Christological (messianic or gospel-related) connection from the Psalm.
+             * Cite the exact verse(s) from the Psalm that explicitly or implicitly point to Christ, the gospel message, or prophetic fulfillment.
+             * Provide at least one clear and explicit corresponding New Testament scripture showing how Christ fulfills or mirrors the Psalm’s message.
+             **Step 6: Modern Application (1 Paragraph)**
+             * Provide at least two specific, practical ways Christians today can apply lessons from this Psalm to their daily lives.
+             * Cite specific verse(s) from the Psalm and corresponding New Testament scriptures that reinforce your suggestions for practical application.
+             * Conclude by briefly explaining how these practices or insights enhance Christian living or spiritual growth.
+             ---
+             **Additional Instructions for Quality Assurance:**
+             * **Accuracy:**
+               Ensure every Scripture reference is authentic and correctly quoted (no paraphrasing unless explicitly stated as such).
+             * **Paragraph length:**
+               Maintain each step as one distinct paragraph, each consisting of at least 5 well-formed sentences.
+             * **Clarity and Structure:**
+               Follow each step precisely. Do not combine steps or omit requirements.
+             * **Citations:**
+               Always provide specific verse numbers from both the Psalm itself and any New Testament references used.
+             **This structured approach ensures consistent quality, spiritual insight, scriptural accuracy, and practical applicability.**
+             */
         
             let prompt = Prompt("Write an abstract for Psalm \(abstract.psalmNumber) per your instructions above.")
             let session = LanguageModelSession(instructions: instructions)
