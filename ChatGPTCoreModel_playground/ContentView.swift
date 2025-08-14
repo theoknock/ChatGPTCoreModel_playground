@@ -8,6 +8,7 @@
 import SwiftUI
 import FoundationModels
 import AVFoundation
+import Observation
 
 // MARK: - Model for a single queued Psalm abstract
 struct PsalmAbstract: Identifiable {
@@ -56,17 +57,18 @@ actor PsalmQueue {
     }
 }
 
-final class AsyncBlockOperation: Operation {
-    private let work: @Sendable () async -> Void
+final class ConcurrentOperation: Operation {
+    private let work: (@escaping () -> Void) -> Void
     private var _executing = false
     private var _finished = false
 
-    init(work: @escaping @Sendable () async -> Void) {
+    init(work: @escaping (@escaping () -> Void) -> Void) {
         self.work = work
         super.init()
     }
 
     override var isAsynchronous: Bool { true }
+
 
     override private(set) var isExecuting: Bool {
         get { _executing }
@@ -87,32 +89,60 @@ final class AsyncBlockOperation: Operation {
     }
 
     override func start() {
-        if isCancelled {
-            isFinished = true
-            return
-        }
+        guard !isCancelled else { isFinished = true; return }
         isExecuting = true
-        print("▶️ Starting async operation: \(self.name ?? "Unnamed") on thread: \(Thread.current)")
-        print("🧵 isAsynchronous: \(self.isAsynchronous)")
-        print("🧵 isConcurrent: \(self.isConcurrent)")
-        Task {
-            await work()
-            print("✅ Finished async operation: \(self.name ?? "Unnamed") on thread: \(Thread.current)")
-            isExecuting = false
-            isFinished = true
+        work { [weak self] in
+            self?.isExecuting = false
+            self?.isFinished = true
+        }
+    }
+}
+
+//final class ConcurrentOperationQueue: OperationQueue {
+//
+//}
+
+extension OperationQueue {
+    static func psalmsOperationQueue(queue: OperationQueue) -> OperationQueue {
+        queue.maxConcurrentOperationCount = 5
+        queue.name = "psalmsOperationQueue"
+        return queue
+    }
+}
+
+// MARK: - Audio Session Manager to allow speech while locked / in background
+final class AudioSessionManager {
+    static let shared = AudioSessionManager()
+    private init() {}
+
+    private let session = AVAudioSession.sharedInstance()
+
+    /// Configure the app for background playback so AVSpeechSynthesizer continues when the device is locked.
+    func configurePlaybackSession() {
+        do {
+            // `.playback` ensures audio continues with the screen locked or Silent switch on (when background audio mode is enabled in capabilities)
+            try session.setCategory(.playback, mode: .spokenAudio, options: [])
+            try session.setActive(true)
+        } catch {
+            print("[AudioSession] Failed to configure: \(error)")
+        }
+    }
+
+    /// Re-activate the session if the system deactivates it (e.g., interruptions, app state changes)
+    func ensureActive() {
+        do {
+            try session.setActive(true, options: [])
+        } catch {
+            print("[AudioSession] Failed to activate: \(error)")
         }
     }
 }
 
 // MARK: - Main View
 struct ContentView: View {
-    //    @State private var sharedOperationQueue: OperationQueue
-    @State private var psalmsOperationQueue: OperationQueue = {
-        let queue = OperationQueue()
-        queue.maxConcurrentOperationCount = 3
-        queue.name = "psalmsOperationQueue"
-        return queue
-    }()
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var psalmsOperationQueue: OperationQueue = OperationQueue.psalmsOperationQueue(queue: OperationQueue())
+    
     @State private var psalmNumber: Int = Int.random(in: 1 ... 150)
     @State private var psalmNumberInput: String = String()
     var quotedPsalmNumberInput: Binding<String> {
@@ -157,9 +187,11 @@ struct ContentView: View {
     }
     
     func speak(_ text: String,  psalmAbstract: PsalmAbstract) {
+        // Ensure the audio session is configured for background/lock-screen playback
+        AudioSessionManager.shared.ensureActive()
+        psalmAbstract.avSpeechSynthesizer.usesApplicationAudioSession = true
         psalmAbstract.avSpeechSynthesizer.speak(makeUtterance(text))
     }
-    var speechSynthesizer: AVSpeechSynthesizer = AVSpeechSynthesizer()
     
     var body: some View {
         ZStack {
@@ -265,8 +297,7 @@ struct ContentView: View {
                     
                     Button/*(action:*/ {
                         dismissKeyboard()
-                        addPsalmAndRun()
-                        //                                }) {
+                        addPsalmAndRun(PsalmAbstract(psalmNumber: psalmNumber))
                     } label: {
                         Image(systemName: "pencil")
                             .foregroundColor(Color(UIColor.white))
@@ -385,6 +416,17 @@ struct ContentView: View {
                         .padding(.horizontal)
                     }
                 }
+            }
+        }
+        .onAppear {
+            // Configure once at launch to allow background playback
+            AudioSessionManager.shared.configurePlaybackSession()
+            UIApplication.shared.beginReceivingRemoteControlEvents()
+        }
+        .onChange(of: scenePhase) { oldPhase, newPhase in
+            // Keep the session active across state changes
+            if newPhase == .active || newPhase == .background {
+                AudioSessionManager.shared.ensureActive()
             }
         }
     }
@@ -506,16 +548,42 @@ struct ContentView: View {
     
     // MARK: - Add & Execute
     
-    
-    
-    private func addPsalmAndRun() {
-        let currentPsalm = psalmNumber
-        let op = AsyncBlockOperation {
-            await refreshQueue()
-            let item = await queue.addPsalm(currentPsalm)
-            await runPsalmAbstract(item)
+    private func runPsalmAbstractBlocking(_ abstract: PsalmAbstract) {
+        let sema = DispatchSemaphore(value: 5)
+        // Run async function on a cooperative thread, but block the GCD worker until it completes.
+        // This isolates Swift Concurrency usage to the implementation detail.
+        Task {
+            await runPsalmAbstract(abstract)
+            sema.signal()
         }
+        sema.wait()
+    }
+    
+    private func addPsalmAndRun(_ abstract: PsalmAbstract) {
+        let currentPsalm = psalmNumber
+
+        let op = ConcurrentOperation { finish in
+            // Everything here is plain GCD & Operations
+            let item = (try? queue.addPsalm(currentPsalm)) ?? PsalmAbstract(psalmNumber: currentPsalm)
+            self.abstracts = (try? self.queue.currentItems) ?? []
+
+            // Block the background thread until the async pipeline completes
+             runPsalmAbstractBlocking(item)
+//            Task {
+//                await runPsalmAbstract(item)
+//            }
+
+            // Final UI refresh
+            self.abstracts = (try? self.queue.currentItems) ?? []
+            finish()
+        }
+
         op.name = "Psalm \(currentPsalm)"
+        op.qualityOfService = .userInitiated
+        print(op.isAsynchronous)
+        print(op.isConcurrent)
+        print("[Queue] Enqueuing: \(op.name ?? "(no name)") maxConcurrent=\(psalmsOperationQueue.maxConcurrentOperationCount) operations=\(psalmsOperationQueue.operations.count)")
+        
         psalmsOperationQueue.addOperation(op)
     }
     
