@@ -380,7 +380,7 @@ struct ContentView: View {
                     .shadow(color: Color.white.opacity(0.5), radius: 2, x: 0, y: 0)
                     .padding()
                 })
-                
+                .padding(.leading, 20)
                 
                 GeometryReader { geometryProxy in
                     ScrollView {
