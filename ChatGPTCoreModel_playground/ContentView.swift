@@ -61,15 +61,15 @@ final class ConcurrentOperation: Operation {
     private let work: (@escaping () -> Void) -> Void
     private var _executing = false
     private var _finished = false
-
+    
     init(work: @escaping (@escaping () -> Void) -> Void) {
         self.work = work
         super.init()
     }
-
+    
     override var isAsynchronous: Bool { true }
-
-
+    
+    
     override private(set) var isExecuting: Bool {
         get { _executing }
         set {
@@ -78,7 +78,7 @@ final class ConcurrentOperation: Operation {
             didChangeValue(forKey: "isExecuting")
         }
     }
-
+    
     override private(set) var isFinished: Bool {
         get { _finished }
         set {
@@ -87,7 +87,7 @@ final class ConcurrentOperation: Operation {
             didChangeValue(forKey: "isFinished")
         }
     }
-
+    
     override func start() {
         guard !isCancelled else { isFinished = true; return }
         isExecuting = true
@@ -114,9 +114,9 @@ extension OperationQueue {
 final class AudioSessionManager {
     static let shared = AudioSessionManager()
     private init() {}
-
+    
     private let session = AVAudioSession.sharedInstance()
-
+    
     /// Configure the app for background playback so AVSpeechSynthesizer continues when the device is locked.
     func configurePlaybackSession() {
         do {
@@ -127,7 +127,7 @@ final class AudioSessionManager {
             print("[AudioSession] Failed to configure: \(error)")
         }
     }
-
+    
     /// Re-activate the session if the system deactivates it (e.g., interruptions, app state changes)
     func ensureActive() {
         do {
@@ -138,10 +138,61 @@ final class AudioSessionManager {
     }
 }
 
+@Generable
+struct AbstractGenerable {
+    @Guide(description: "abstract")
+    let abstract: String
+    
+    @Guide(description: "psalm")
+    let psalm: String
+    
+    @Guide(description: "quote")
+    let quote: String
+    
+    @Guide(description: "summary")
+    let summary: String
+    
+    @Guide(description: "purpose")
+    let purpose: String
+    
+    @Guide(description: "themes")
+    let themes: String
+    
+    @Guide(description: "theology")
+    let theology: String
+    
+    @Guide(description: "christology")
+    let christology: String
+    
+    @Guide(description: "modernity")
+    let modernity: String
+}
+
+func makeAbstractGenerable(instructions: Instructions, prompt: Prompt) async throws -> AbstractGenerable {
+    let model = SystemLanguageModel(guardrails: .permissiveContentTransformations)
+    let session = LanguageModelSession(model: model, instructions: instructions)
+    let stream = session.streamResponse {
+        prompt
+    }
+    var response = String()
+    for try await s in stream {
+        response = s.content
+
+        print("\n\n\n")
+        print (s.content)
+        print("\n\n\n")
+    }
+    
+
+    return AbstractGenerable(abstract: response, psalm: "23", quote: "The Lord is my shepherd", summary: "Lord = Shepherd", purpose: "Who's your shepherd?", themes: "Shepherd", theology: "God likes the Shepherd role", christology: "The Good Shepherd", modernity: "God is your shepherd — if you want him to be...")
+}
+
+
 // MARK: - Main View
 struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var psalmsOperationQueue: OperationQueue = OperationQueue.psalmsOperationQueue(queue: OperationQueue())
+    
     
     @State private var psalmNumber: Int = Int.random(in: 1 ... 150)
     @State private var psalmNumberInput: String = String()
@@ -170,15 +221,15 @@ struct ContentView: View {
     //
     // Text-to-Speech
     func makeUtterance(_ text: String) -> AVSpeechUtterance {
-        let utterance = AVSpeechUtterance(string: text)
-        utterance.rate = 0.5
-        utterance.pitchMultiplier = 0.5
-        utterance.postUtteranceDelay = 0.2
-        utterance.rate = AVSpeechUtteranceDefaultSpeechRate
-        utterance.volume = 0.8
-        utterance.pitchMultiplier = 0.0
-        utterance.voice = .speechVoices().first ?? makeVoice()
-        return utterance
+        //        let utterance = AVSpeechUtterance(string: text)
+        //        utterance.rate = 0.5
+        //        utterance.pitchMultiplier = 0.5
+        //        utterance.postUtteranceDelay = 0.2
+        //        utterance.rate = AVSpeechUtteranceDefaultSpeechRate
+        //        utterance.volume = 0.8
+        //        utterance.pitchMultiplier = 0.0
+        //        utterance.voice = .speechVoices().first ?? makeVoice()
+        return AVSpeechUtterance(ssmlRepresentation: text) ?? AVSpeechUtterance(string: "Pending...")
     }
     
     func makeVoice() -> AVSpeechSynthesisVoice {
@@ -191,6 +242,22 @@ struct ContentView: View {
         AudioSessionManager.shared.ensureActive()
         psalmAbstract.avSpeechSynthesizer.usesApplicationAudioSession = true
         psalmAbstract.avSpeechSynthesizer.speak(makeUtterance(text))
+    }
+    
+    func speak__(_ text: String, psalmAbstract: PsalmAbstract) async {
+        AudioSessionManager.shared.ensureActive()
+        psalmAbstract.avSpeechSynthesizer.usesApplicationAudioSession = true
+        
+        do {
+            let ssml = try await textToSSMLPsalm(removeJSONTags(text))
+            if let utterance = AVSpeechUtterance(ssmlRepresentation: ssml) {
+                psalmAbstract.avSpeechSynthesizer.speak(utterance)
+            } else {
+                psalmAbstract.avSpeechSynthesizer.speak(AVSpeechUtterance(string: removeJSONTags(text)))
+            }
+        } catch {
+            
+        }
     }
     
     var body: some View {
@@ -313,7 +380,7 @@ struct ContentView: View {
                     .shadow(color: Color.white.opacity(0.5), radius: 2, x: 0, y: 0)
                     .padding()
                 })
-    
+                
                 
                 GeometryReader { geometryProxy in
                     ScrollView {
@@ -321,15 +388,15 @@ struct ContentView: View {
                             ForEach(abstracts, content: { abstract in
                                 GroupBox(content: {
                                     var jsonResponse: String = removeJSONTags(abstract.response)
-//                                    TextField(jsonResponse, text: jsonResponseBound)
-//                                        .font(.default)
-//                                        .fontWeight(.medium)
-//                                        .shadow(color: Color.black.opacity(0.5), radius: 2, x: 0, y: 0)
-//                                        .foregroundColor(.primary.opacity(0.8125))
+                                    //                                    TextField(jsonResponse, text: jsonResponseBound)
+                                    //                                        .font(.default)
+                                    //                                        .fontWeight(.medium)
+                                    //                                        .shadow(color: Color.black.opacity(0.5), radius: 2, x: 0, y: 0)
+                                    //                                        .foregroundColor(.primary.opacity(0.8125))
                                     //                                        .textSelection(.enabled)
                                     //                                        .focusable(true)
                                     //                                        .focusEffectDisabled(false)
-
+                                    
                                     Text(jsonResponse)
                                         .font(.default)
                                         .multilineTextAlignment(.leading)
@@ -348,17 +415,25 @@ struct ContentView: View {
                                         .cornerRadius(10)
                                 }, label: {
                                     HStack(alignment: .lastTextBaseline, content: {
-//                                        TextField("Psalm \(psalmNumber)", text: quotedPsalmNumberInput)  ///("PSALM \(quotedPsalmNumberInput)")
-//                                            .font(.title2)
-//                                            .fontWeight(.medium)
-//                                            .shadow(color: Color.black.opacity(0.5), radius: 2, x: 0, y: 0)
-//                                            .foregroundColor(.primary.opacity(0.8125))
+                                        //                                        TextField("Psalm \(psalmNumber)", text: quotedPsalmNumberInput)  ///("PSALM \(quotedPsalmNumberInput)")
+                                        //                                            .font(.title2)
+                                        //                                            .fontWeight(.medium)
+                                        //                                            .shadow(color: Color.black.opacity(0.5), radius: 2, x: 0, y: 0)
+                                        //                                            .foregroundColor(.primary.opacity(0.8125))
                                         Button {
                                             Task {
                                                 if ((abstract).avSpeechSynthesizer.isSpeaking) {
                                                     (abstract).avSpeechSynthesizer.stopSpeaking(at: .immediate)
                                                 } else {
-                                                    (abstract).avSpeechSynthesizer.speak(makeUtterance(removeJSONTags(abstract.response)))
+                                                    //                                                    AudioSessionManager.shared.ensureActive()
+                                                    //                                                    (abstract).avSpeechSynthesizer.usesApplicationAudioSession = true
+                                                    //                                                    (abstract).avSpeechSynthesizer.speak(AVSpeechUtterance(string: abstract.response)) // This is where the SSML-formatted string should be generated, and the init?(ssmlRepresentation: String) should be used instead of init(string: String)
+                                                    ////                                                    (abstract).avSpeechSynthesizer.speak(makeUtterance(removeJSONTags(abstract.response)))
+                                                    do {
+                                                        try await speak__(abstract.response, psalmAbstract: abstract)
+                                                    } catch {
+                                                        
+                                                    }
                                                 }
                                             }
                                         } label: {
@@ -561,23 +636,23 @@ struct ContentView: View {
     
     private func addPsalmAndRun(_ abstract: PsalmAbstract) {
         let currentPsalm = psalmNumber
-
+        
         let op = ConcurrentOperation { finish in
             // Everything here is plain GCD & Operations
             let item = (try? queue.addPsalm(currentPsalm)) ?? PsalmAbstract(psalmNumber: currentPsalm)
             self.abstracts = (try? self.queue.currentItems) ?? []
-
-            // Block the background thread until the async pipeline completes
-             runPsalmAbstractBlocking(item)
-//            Task {
-//                await runPsalmAbstract(item)
-//            }
-
+            
+            // Block the background thread until the async pipeline completes.
+            runPsalmAbstractBlocking(item)
+            //            Task {
+            //                await runPsalmAbstract(item)
+            //            }
+            
             // Final UI refresh
             self.abstracts = (try? self.queue.currentItems) ?? []
             finish()
         }
-
+        
         op.name = "Psalm \(currentPsalm)"
         op.qualityOfService = .userInitiated
         print(op.isAsynchronous)
@@ -612,29 +687,28 @@ struct ContentView: View {
             }
             
             // Create instructions with explicit plain text request
-                    let instructions = Instructions("""
+            let instructions = Instructions("""
+                        Write an abstract of the given psalm (KJV only) that allows readers to quickly determine the topic(s) and scope. Use keywords common to biblical literary review that reflect the main topics or concepts
+
+                        1. A Highlight: The abstract should begin with a key highlight that best represents the central message or emphasis of the Psalm, reflecting its specific content and significance. Follow this paragraph with the scriptural reference (i.e., book, chapter, verse and version of the KJV). Add a new line after this paragraph.
+                        2. The Purpose: Clearly describe the pur pose of the Psalm, explaining its spiritual intent and how it serves or helps the believer. Avoid mentioning the writer unless referring to the Psalm’s direct impact on worship or spiritual life. Include scriptural references (i.e., book, chapter, verse and version of the KJV) throughout the paragraph. Add a new line after this paragraph. Ideally, this paragraph should be at least 4 to 5 sentences.
+                        3. Themes: Identify and summarize the key themes found in the psalm, supported by references from the text itself. Include scriptural references (i.e., book, chapter, verse and version of the KJV) for every sentence in the paragraph. Add a new line after this paragraph. Ideally, this paragraph should be at least 4 to 5 sentences.
+                        4. Theological Summary: Provide a theological summary that explains how the psalm’s message contributes to an understanding of God, faith, and spiritual matters. Include scriptural references (i.e., book, chapter, verse and version of the KJV) for every sentence in the paragraph. Add a new line after this paragraph. Ideally, this paragraph should be at least 4 to 5 sentences.
+                        5. Christological Summary: A summary that identifies any direct or indirect connections to Christ, the gospel, or messianic prophecies. Include scriptural references (i.e., book, chapter, verse and version of the KJV) for every sentence in the paragraph. Add a new line after this paragraph. Ideally, this paragraph should be at least 4 to 5 sentences.
+                        6. Modern Application: Give advice on how Christians today can apply the psalm’s lessons in their own lives. Include scriptural references (i.e., book, chapter, verse and version of the KJV) for every sentence in the paragraph. Add a new line after this paragraph. Ideally, Ideally, this paragraph should be at least 4 to 5 sentences.
                         
-                        1. A Highlight: The abstract should begin with a key highlight that best represents the central message or emphasis of the Psalm, reflecting its specific content and significance.
-                        2. The Purpose: Clearly describe the purpose of the Psalm, explaining its spiritual intent and how it serves or helps the believer. Avoid mentioning the writer unless referring to the Psalm’s direct impact on worship or spiritual life.
-                        3. Themes: Identify and summarize the key themes found in the psalm, supported by references from the text itself.
-                        4. Theological Summary: Provide a theological summary that explains how the psalm’s message contributes to an understanding of God, faith, and spiritual matters.
-                        5. Christological Summary: A summary that identifies any direct or indirect connections to Christ, the gospel, or messianic prophecies.
-                        6. Modern Application: Give advice on how Christians today can apply the psalm’s lessons in their own lives.
-
                         Prompts can be single psalm (e.g., “Psalm 23” or “23”), and also be a range or sequence of psalms (e.g., “Psalm 22 through 23”). When a sequence or range of psalms is specified, combine each abstract into one response. Do not mix abstracts; each psalm should have its own abstract.
-
+                        
                         When a request includes more than one psalm (whether a range, list, or sequence), you must write a full, independent six-paragraph abstract for each psalm, preserving the complete required structure: Highlight, Purpose, Themes, Theological Summary, Christological Summary, and Modern Application. Do not combine psalms into a shared summary or condense their structure. For each psalm in the request, repeat the six paragraphs in full before moving to the next psalm. Each abstract must stand alone as if it were the only psalm being summarized. No paragraph count is to be reduced in multi-psalm outputs.
-
+                        
                         Regardless, PsalmsAbstractGPT must meet the following criteria for every abstract:
-
+                        
                         1a. Start with a memorable quote that encapsulates the main or key idea of the psalm.
                         1b. The abstract should consist of 6 well-formed paragraphs that highlight the Psalm’s key message, its purpose, themes, and any theological and Christological significance. Each paragraph should be at least 5 sentences.
                         2. The abstract should incorporate specific verses from the Psalm itself to support the identified themes, along with New Testament scripture to show how the psalm’s message relates to Christian faith, especially in connection to Christ.
                         3. The last paragraph should offer practical advice on how Christians can apply the psalm’s message in their daily lives. The response should remain brief yet thorough, never exceeding two paragraphs for the Christological and theological summaries combined.
-
+                        
                         No headers. Just paragraphs. Casual, friendly tone.
-
-                        Use the Psalms.txt file uploaded to your Knowledge as this sole source of your scripture references and quotes.
                         
                         """)
             
@@ -669,52 +743,118 @@ struct ContentView: View {
              * Conclude by briefly explaining how these practices or insights enhance Christian living or spiritual growth.
              ---
              **Additional Instructions for Quality Assurance:**
+             **Additional Instructions for Quality Assurance:**
              * **Accuracy:**
-               Ensure every Scripture reference is authentic and correctly quoted (no paraphrasing unless explicitly stated as such).
+             Ensure every Scripture reference is authentic and correctly quoted (no paraphrasing unless explicitly stated as such).
              * **Paragraph length:**
-               Maintain each step as one distinct paragraph, each consisting of at least 5 well-formed sentences.
+             Maintain each step as one distinct paragraph, each consisting of at least 5 well-formed sentences.
              * **Clarity and Structure:**
-               Follow each step precisely. Do not combine steps or omit requirements.
+             Follow each step precisely. Do not combine steps or omit requirements.
              * **Citations:**
-               Always provide specific verse numbers from both the Psalm itself and any New Testament references used.
+             Always provide specific verse numbers from both the Psalm itself and any New Testament references used.
              **This structured approach ensures consistent quality, spiritual insight, scriptural accuracy, and practical applicability.**
              */
-        
+            
+//            let model = SystemLanguageModel(guardrails: .permissiveContentTransformations)
+//            let session = LanguageModelSession(model: model, instructions: instructions)
+            /* Use the Psalms.txt file uploaded to your Knowledge as the sole source of your scripture references and quotes:\n\(allText)*/
             let prompt = Prompt("Write an abstract for Psalm \(abstract.psalmNumber) per your instructions above.")
-            let session = LanguageModelSession(instructions: instructions)
-            
-            let stream = session.streamResponse(to: prompt, generating: String.PartiallyGenerated.self)
-            var fullResponse = ""
-            
-            for try await partial in stream {
-                fullResponse = partial.content
-                await queue.updateResponse(for: abstract.id, response: fullResponse, isCompleted: false)
-                await refreshQueue()
+            let model = SystemLanguageModel(guardrails: .permissiveContentTransformations)
+            let session = LanguageModelSession(model: model, instructions: instructions)
+            let stream = session.streamResponse {
+                prompt
             }
             
-            // Final update with completion status
-            if fullResponse.isEmpty {
+            do {
+                var response = String()
+                for try await s in stream {
+                    response = s.content
+                    await queue.updateResponse(for: abstract.id, response: response, isCompleted: false)
+                    await refreshQueue()
+                    print("\n\n\n")
+                    print (s.content)
+                    print("\n\n\n")
+                }
+            } catch {
                 await queue.updateResponse(for: abstract.id, response: "Error: Received empty response from language model", isCompleted: true)
-            } else {
-                //                let fullUtterance: String = fullResponse
-                //                Task.immediate(operation: {
-                //                    speakText(fullUtterance)
-                //                })
+                await queue.updateResponse(for: abstract.id, response: "Error: \(error.localizedDescription)", isCompleted: true)
+                print("❌ Error generating Psalm \(abstract.psalmNumber): \(error.localizedDescription)")
+            }
+            
+            //            let stream = session.streamResponse(to: prompt, generating: AbstractGenerable.PartiallyGenerated.self) /*String.PartiallyGenerated.self)*/
+//            do {
+//                var fullResponse = try await makeAbstractGenerable(instructions: instructions, prompt: prompt)
+//                await queue.updateResponse(for: abstract.id, response: fullResponse.abstract, isCompleted: true)
+//            } catch {
+//                await queue.updateResponse(for: abstract.id, response: "Error: Received empty response from language model", isCompleted: true)
+//                await queue.updateResponse(for: abstract.id, response: "Error: \(error.localizedDescription)", isCompleted: true)
+//                print("❌ Error generating Psalm \(abstract.psalmNumber): \(error.localizedDescription)")
+//            }
+            
+            
+//            for try await partial in stream {
+//                fullResponse = partial.content
+//                await queue.updateResponse(for: abstract.id, response: fullResponse, isCompleted: false)
+//                await refreshQueue()
+//            }
+//            
+//        
+//                await queue.updateResponse(for: abstract.id, response: fullResponse, isCompleted: true)
+//                
+                //                do {
+                //                    // --- SSML test output (console only) ---
+                //                    let ssmlInstructions = Instructions(
+                //                                        """
+                //                                        You are an SSML formatter for AVSpeechUtterance on Apple platforms.
+                //                                        Convert the user's input into valid SSML 1.1.
+                //
+                //                                        """
+                //                    )
+                //                    let ssmlPrompt = Prompt("""
+                //                                    Transform the following abstract into SSML suitable for AVSpeechSynthesizer. Return only the SSML document.
+                //                                    ---
+                //                                    \(removeJSONTags(fullResponse))
+                //                                    """)
+                //                    let ssmlSession = LanguageModelSession(instructions: ssmlInstructions)
+                //                    let ssmlStream = ssmlSession.streamResponse(to: ssmlPrompt, generating: String.PartiallyGenerated.self)
+                //                    var ssmlOutput = ""
+                //
+                //                    do {
+                //                        for try await partial in ssmlStream {
+                //                            ssmlOutput = partial.content
+                //                        }
+                //                    } catch {
+                //                        //                    ssmlOutput = "<speak>\(removeJSONTags(fullResponse))</speak>"
+                //                    }
+                //                    //                ssmlOutput = ssmlOutput.trimmingCharacters(in: .whitespacesAndNewlines)
+                //                    //                if ssmlOutput.isEmpty {
+                //                    //                    ssmlOutput = "<speak>\(removeJSONTags(fullResponse))</speak>"
+                //                    //                } else if ssmlOutput.hasPrefix("```") {
+                //                    //                    ssmlOutput = ssmlOutput
+                //                    //                        .replacingOccurrences(of: "```ssml", with: "")
+                //                    //                        .replacingOccurrences(of: "```xml", with: "")
+                //                    //                        .replacingOccurrences(of: "```", with: "")
+                //                    //                        .trimmingCharacters(in: .whitespacesAndNewlines)
+                //                    //                }
+                //                    print("SSML OUTPUT:\n\(ssmlOutput)")
+                //                    // --- end SSML test output ---
+                //
+                //                    print("✅ Psalm \(abstract.psalmNumber) abstract completed successfully")
+                //                }            }
+                //                let ssml = textToSSMLPsalm(fullResponse)
                 
-                // Make sure we have the final complete response
-                await queue.updateResponse(for: abstract.id, response: fullResponse, isCompleted: true)
-                
-                
-                
+                // Store the SSML in the response, so speak__ can use it directly
+                //                await queue.updateResponse(for: abstract.id, response: ssml, isCompleted: true)
                 
                 print("✅ Psalm \(abstract.psalmNumber) abstract completed successfully")
             }
             
-        } catch {
-            // Handle any streaming or session errors
-            await queue.updateResponse(for: abstract.id, response: "Error: \(error.localizedDescription)", isCompleted: true)
-            print("❌ Error generating Psalm \(abstract.psalmNumber): \(error.localizedDescription)")
-        }
+//            
+//        } catch {
+//            // Handle any streaming or session errors
+//            await queue.updateResponse(for: abstract.id, response: "Error: \(error.localizedDescription)", isCompleted: true)
+//            print("❌ Error generating Psalm \(abstract.psalmNumber): \(error.localizedDescription)")
+//        }
         
         // Always refresh queue at the end
         await refreshQueue()
@@ -726,7 +866,90 @@ struct ContentView: View {
     }
 }
 
+/// Convert a Psalm abstract into SSML tuned for natural delivery.
+/// - Parameters:
+///   - text: Plain text abstract
+///   - language: BCP-47 code for SSML xml:lang (default "en-US")
+/// - Returns: SSML string with <speak> root
+/// Ask the local model to produce SSML directly from plain text.
+/// - Parameters:
+///   - text: The plain text abstract
+///   - language: BCP-47 code for SSML xml:lang (default "en-US")
+/// - Returns: A valid SSML string from the model, or a safe fallback
+func textToSSMLPsalm(_ text: String, language: String = "en-US") async -> String {
+    // Build instructions that tell the *local* model what to return
+    let instructions = Instructions("""
+    Your task is to convert the given text to SSML for use with AVSpeechUtterance (Apple). Make the text sound very interesting,
+    with lots of inflection and enthusiasm. Your goal should be to make the given text sound very different
+    when read aloud than it would without your SSML markup.
+    
+    TASK:
+    - Take the following text (a Psalm abstract).
+    - Return it as a valid SSML 1.1 document.
+    - Use <p> for paragraphs and <s> for sentences.
+    - Add <emphasis>, <break>, and <prosody> adjustments (rate, pitch, volume) to every sentence.
+      where they will make the narration sound more natural and expressive.
+    - Do NOT include code fences, explanations, or any non-SSML output.
+    """)
+    
+    // Build the actual prompt
+    let prompt = Prompt("""
+    Convert the following abstract into SSML:
+    
+    ---
+    \(text)
+    ---
+    """)
+    
+    // Create a local model session
+    let ssmlSession = LanguageModelSession(instructions: instructions)
+    
+    let ssmlStream = ssmlSession.streamResponse(to: prompt, generating: String.PartiallyGenerated.self)
+    var ssmlResponse = ""
+    
+    do {
+        for try await partial in ssmlStream {
+            ssmlResponse = partial.content
+        }
+        print("\n✅ Psalm Abstract SSML \(ssmlResponse)\n")
+    } catch {
+        
+    }
+    
+    return ssmlResponse
+}
+
+// MARK: - Regex replacing helper with match groups
+private extension String {
+    /// Replace all matches using a closure that receives captured groups as an array-like accessor.
+    func replacingOccurrences(of pattern: String, with builder: (_ m: RegexMatch) -> String) -> String {
+        let regex = try! NSRegularExpression(pattern: pattern, options: [])
+        let ns = self as NSString
+        var result = ""
+        var lastIndex = 0
+        let matches = regex.matches(in: self, options: [], range: NSRange(location: 0, length: ns.length))
+        for match in matches {
+            let range = match.range
+            result += ns.substring(with: NSRange(location: lastIndex, length: range.location - lastIndex))
+            let groups = (0..<match.numberOfRanges).map { i -> String in
+                let r = match.range(at: i)
+                return r.location != NSNotFound ? ns.substring(with: r) : ""
+            }
+            result += builder(RegexMatch(groups: groups))
+            lastIndex = range.location + range.length
+        }
+        result += ns.substring(from: lastIndex)
+        return result
+    }
+}
+
+struct RegexMatch {
+    let groups: [String]
+    subscript(_ idx: Int) -> String { groups[idx] }
+}
+
 #Preview {
     ContentView()
         .preferredColorScheme(.dark)
 }
+
